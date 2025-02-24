@@ -1,0 +1,3272 @@
+baseline_check_items:
+  - uid: CHK001
+    description: 检查设备密码复杂度策略
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      declare -A policy_status
+      declare -A policy_ref
+      files=("/etc/pam.d/system-auth" "/etc/pam.d/passwd" "/etc/pam.d/common-password")
+
+      # ucredit:大写字母个数；lcredit:小写字母个数；dcredit:数字个数；ocredit:特殊字符个数
+      policies=("ucredit" "lcredit" "dcredit" "ocredit")
+
+      # 设置参考值
+      for policy in "${policies[@]}"
+      do
+        policy_ref["$policy"]=-1
+      done
+
+      # 初始化结果状态为0（合格）
+      result_status=0
+      outputs="检查设备密码复杂度策略，"
+
+      for file in "${files[@]}"
+      do
+        if [ -f "$file" ]; then
+          for policy in "${policies[@]}"
+          do
+            # 寻找策略值
+            policy_value=$(grep -Po "(?<=${policy}=)-?\d+" "$file" 2>/dev/null)
+            if [ -z "$policy_value" ]; then
+              outputs+="当前密码复杂度策略不符合要求，找不到 ${policy} 值，"
+              result_status=1
+            else
+              policy_status["$policy"]=$policy_value
+              # 检查是否符合期望值，若不符合，将结果状态置为1（不合格）
+              if [ "$policy_value" -ne "${policy_ref["$policy"]}" ]; then
+                outputs+="当前密码复杂度策略不符合要求，${policy} 的核查值为：${policy_status["$policy"]}，标准值为：${policy_ref["$policy"]}，"
+                result_status=1
+              fi
+            fi
+          done
+        fi
+      done
+
+      # 如果所有的密码策略检查都通过了，添加相应的信息到输出中
+      if [ $result_status -eq 0 ]; then
+        outputs+="所有的密码复杂度策略都符合要求。"
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+    harm:
+      检查点1:检查密码复杂度策略中设置的特殊字符个数,该核查的判断值（是否通过）：-1;检查点1:检查密码复杂度策略中设置的大写字母个数,该核查的判断值（是否通过）：-1;检查点1:检查密码复杂度策略中设置的数字个数,该核查的判断值（是否通过）：-1;检查点2:检查密码复杂度策略中设置的特殊字符个数,该核查的判断值（是否通过）：-1;检查点2:检查密码复杂度策略中设置的数字个数,该核查的判断值（是否通过）：-1;检查点2:检查密码复杂度策略中设置的小写字母个数,该核查的判断值（是否通过）：-1;检查点3:检查密码复杂度策略中设置的特殊字符个数,该核查的判断值（是否通过）：-1;检查点3:检查密码复杂度策略中设置的大写字母个数,该核查的判断值（是否通过）：-1;检查点3:检查密码复杂度策略中设置的小写字母个数,该核查的判断值（是否通过）：-1;检查点4:检查密码复杂度策略中设置的大写字母个数,该核查的判断值（是否通过）：-1;检查点4:检查密码复杂度策略中设置的数字个数,该核查的判断值（是否通过）：-1;检查点4:检查密码复杂度策略中设置的小写字母个数,该核查的判断值（是否通过）：-1;
+    solution: |-
+      Redhat系统：修改/etc/pam.d/system-auth文件,
+      
+      Suse9：修改/etc/pam.d/passwd文件，
+      
+      Suse10,Suse11：修改/etc/pam.d/common-password文件，
+      
+      在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。
+      
+      例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1
+      
+      注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数
+  - uid: CHK002
+    description: 检查是否设置口令生存周期
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # 检查点1：检查口令生存周期
+      file="/etc/login.defs"
+      policy="PASS_MAX_DAYS"
+      expected_value=90  # 标准值
+
+      outputs="检查是否设置口令生存周期，"
+      result_status=0
+
+      # 检查文件是否存在
+      if [ -f "$file" ]; then
+          policy_value=$(grep "^${policy}" "$file" | awk '{print $2}')
+          if [ -z "$policy_value" ]; then
+              outputs+="当前口令生存周期未设置，"
+              result_status=1
+          elif [ "$policy_value" -gt "$expected_value" ]; then
+              outputs+="当前口令生存周期设置超过标准值，核查值为：${policy_value}，标准值为：${expected_value}，"
+              result_status=1
+          else
+              outputs+="口令生存周期符合要求，设置值为：${policy_value}，"
+          fi
+      else
+          outputs+="文件 ${file} 不存在，无法检查口令生存周期，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: ok
+    harm: 检查点1:检查口令生存周期,该核查的判断值（是否通过）：ok;
+    solution: |-
+      在文件/etc/login.defs中设置 PASS_MAX_DAYS 不大于标准值,PASS_MAX_DAYS   90，如果该文件不存在，则创建并按照要求进行编辑
+  - uid: CHK003
+    description: 检查口令最小长度
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # 检查点1：在/etc/pam.d/system-auth中设置口令最小长度
+      # 检查点2：在/etc/login.defs中设置口令最小长度
+      file1="/etc/pam.d/system-auth"
+      file2="/etc/login.defs"
+      policy="minlen"
+      expected_value=6  # 标准值
+
+      outputs="检查口令最小长度，"
+      result_status=0
+
+      # 检查文件是否存在
+      if [ -f "$file1" ]; then
+          policy_value=$(grep "password.*pam_cracklib.so" "$file1" | grep -o "${policy}=[0-9]*" | cut -d= -f2)
+          if [ -z "$policy_value" ]; then
+              outputs+="当前在文件${file1}中口令最小长度未设置，"
+              result_status=1
+          elif [ "$policy_value" -lt "$expected_value" ]; then
+              outputs+="当前在文件${file1}中口令最小长度设置小于标准值，核查值为：${policy_value}，标准值为：${expected_value}，"
+              result_status=1
+          else
+              outputs+="在文件${file1}中口令最小长度符合要求，设置值为：${policy_value}，"
+          fi
+      else
+          outputs+="文件 ${file1} 不存在，无法检查口令最小长度，"
+          result_status=1
+      fi
+
+      if [ -f "$file2" ]; then
+          policy_value=$(grep "^PASS_MIN_LEN" "$file2" | awk '{print $2}')
+          if [ -z "$policy_value" ]; then
+              outputs+="当前在文件${file2}中口令最小长度未设置，"
+              result_status=1
+          elif [ "$policy_value" -lt "$expected_value" ]; then
+              outputs+="当前在文件${file2}中口令最小长度设置小于标准值，核查值为：${policy_value}，标准值为：${expected_value}，"
+              result_status=1
+          else
+              outputs+="在文件${file2}中口令最小长度符合要求，设置值为：${policy_value}，"
+          fi
+      else
+          outputs+="文件 ${file2} 不存在，无法检查口令最小长度，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: 6,6
+    harm:
+      检查点1:在/etc/pam.d/system-auth中设置口令最小长度,该核查的判断值（是否通过）：6;检查点2:在/etc/login.defs中设置口令最小长度,该核查的判断值（是否通过）：6;
+    solution: |-
+      在配置文件/etc/pam.d/system-auth中设置口令最小长度
+      
+      在password    required      pam_cracklib.so后添加minlen=6
+      在文件/etc/login.defs中设置 PASS_MIN_LEN 不小于标准值
+  - uid: CHK004
+    description: 检查是否设置口令更改最小间隔天数
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # 检查点1: 检查口令更改最小间隔天数
+      file="/etc/login.defs"
+      policy="PASS_MIN_DAYS"
+      expected_value=6  # 标准值
+
+      outputs="检查口令更改最小间隔天数，"
+      result_status=0
+
+      # 检查文件是否存在
+      if [ -f "$file" ]; then
+          policy_value=$(grep "^${policy}" "$file" | awk '{print $2}')
+          if [ -z "$policy_value" ]; then
+              outputs+="当前${policy}未设置，"
+              result_status=1
+          elif [ "$policy_value" -lt "$expected_value" ]; then
+              outputs+="当前${policy}设置小于标准值，核查值为：${policy_value}，标准值为：${expected_value}，"
+              result_status=1
+          else
+              outputs+="当前${policy}设置符合要求，设置值为：${policy_value}，"
+          fi
+      else
+          outputs+="文件 ${file} 不存在，无法检查${policy}，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: '6'
+    harm: 检查点1:检查口令更改最小间隔天数,该核查的判断值（是否通过）：6;
+    solution: |-
+      在文件/etc/login.defs中设置 PASS_MIN_DAYS 不小于标准值
+  - uid: CHK005
+    description: 检查是否存在空口令账号
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # 检查点1: 是否存在空口令账号
+      file="/etc/shadow"
+      outputs="检查是否存在空口令账号，"
+      result_status=0
+
+      # 检查文件是否存在
+      if [ -f "$file" ]; then
+          # 检查是否有空口令的账号
+          empty_passwd_accounts=$(awk -F: '($2 == "" ) { print $1 }' "$file")
+          if [ -z "$empty_passwd_accounts" ]; then
+              outputs+="当前系统不存在空口令账号，"
+          else
+              outputs+="当前系统存在空口令账号，账号包括：${empty_passwd_accounts}，"
+              result_status=1
+          fi
+      else
+          outputs+="文件 ${file} 不存在，无法检查空口令账号，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: /.+/
+    harm: 检查点1:是否存在空口令账号,该核查的判断值（是否通过）：/.+/;
+    solution: |-
+      按照密码设置策略设置非空密码 命令： passwd [OPTION...] <accountName>
+  - uid: CHK006
+    description: 检查是否设置口令过期前警告天数
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # 检查点1: 检查口令过期前警告天数
+      file="/etc/login.defs"
+      outputs="检查口令过期前警告天数，"
+      result_status=0
+
+      # 检查文件是否存在
+      if [ -f "$file" ]; then
+          # 获取设置的口令过期前警告天数
+          warn_age=$(grep -i '^PASS_WARN_AGE' "$file" | awk '{print $2}')
+          if [ "$warn_age" -ge 30 ]; then
+              outputs+="当前设置的口令过期前警告天数满足要求，核查值为：${warn_age}，标准值为：30，"
+          else
+              outputs+="当前设置的口令过期前警告天数不满足要求，核查值为：${warn_age}，标准值为：30，"
+              result_status=1
+          fi
+      else
+          outputs+="文件 ${file} 不存在，无法检查口令过期前警告天数，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: '30'
+    harm: 检查点1:检查口令过期前警告天数,该核查的判断值（是否通过）：30;
+    solution: |-
+      在文件/etc/login.defs中设置 PASS_WARN_AGE 不小于标准值
+  - uid: CHK007
+    description: 检查是否设置除root之外UID为0的用户
+    riskLevel: 5
+    query: |-
+      #!/bin/bash
+
+      # 检查点1: 检查是否存在除root之外UID为0的用户
+      file="/etc/passwd"
+      outputs="检查是否存在除root之外UID为0的用户，"
+      result_status=0
+
+      # 检查文件是否存在
+      if [ -f "$file" ]; then
+          # 获取所有UID为0的用户
+          users=$(awk -F: '($3 == 0) {print $1}' "$file")
+          # 检查是否存在除root之外的用户
+          for user in $users; do
+              if [ "$user" != "root" ]; then
+                  outputs+="存在UID为0的非root用户：${user}，"
+                  result_status=1
+              fi
+          done
+          if [ $result_status -eq 0 ]; then
+              outputs+="所有UID为0的用户均为root，"
+          fi
+      else
+          outputs+="文件 ${file} 不存在，无法检查是否存在除root之外UID为0的用户，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: /.+/
+    harm: 检查点1:检查是否存在除root之外UID为0的用户,该核查的判断值（是否通过）：/.+/;
+    solution: |-
+      文件/etc/passwd中除root所在行外所有行第二个与第三个冒号之间UID不应设置为0
+  - uid: CHK008
+    description: 检查用户目录缺省访问权限设置
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # 检查点1: 检查用户目录缺省访问权限设置
+      file="/etc/login.defs"
+      outputs="检查用户目录缺省访问权限设置，"
+      result_status=0
+      expected_umask=27
+
+      # 检查文件是否存在
+      if [ -f "$file" ]; then
+          # 获取umask设置
+          umask_value=$(awk '/^UMASK/ {print $2}' "$file")
+          if [ "$umask_value" == "$expected_umask" ]; then
+              outputs+="当前缺省访问权限设置为：${umask_value}，符合要求。"
+          else
+              outputs+="当前缺省访问权限设置为：${umask_value}，不符合要求，标准值为：${expected_umask}。"
+              result_status=1
+          fi
+      else
+          outputs+="文件 ${file} 不存在，无法检查用户目录缺省访问权限设置，"
+          result_status=1
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: '27'
+    harm: 检查点1:检查用户目录缺省访问权限设置,该核查的判断值（是否通过）：27;
+    solution: |-
+      参考配置操作：
+      
+      (1) 设置用户目录默认权限，执行命令vi /etc/login.defs，编辑文件；
+      
+      (2) 在文件中设置umask 027或UMASK 027，将缺省访问权限设置为750。，如果文件中含有umask参数，则需要在最前面设置该参数
+  - uid: CHK009
+    description: 检查重要目录或文件权限设置
+    riskLevel: 5
+    query: |-
+      #!/bin/bash
+
+      declare -A file_perms
+      file_perms=(
+        ["/etc/rc.d/init.d/"]=750
+        ["/tmp"]=750
+        ["/etc/xinetd.conf"]=600
+        ["/etc/rc5.d"]=750
+        ["/etc/rc4.d"]=750
+        ["/etc/security"]=600
+        ["/etc/shadow"]=600
+        ["/etc/passwd"]=644
+        ["/etc/rc3.d"]=750
+        ["/etc/grub.conf"]=600
+        ["/boot/grub/grub.conf"]=600
+        ["/etc/lilo.conf"]=600
+        ["/etc/grub2.cfg"]=600
+        ["/boot/grub2/grub.cfg"]=600
+        ["/etc/services"]=644
+        ["/etc/rc6.d"]=750
+        ["/etc/rc1.d"]=750
+        ["/etc/group"]=644
+        ["/etc/rc0.d"]=750
+        ["/etc/rc2.d"]=750
+      )
+
+      outputs="检查重要目录或文件权限设置，"
+      result_status=0
+
+      for file in "${!file_perms[@]}"; do
+        if [ -e "$file" ]; then
+          perm=$(stat -c "%a" "$file")
+          if [ "$perm" != "${file_perms[$file]}" ]; then
+            outputs+="文件或目录：${file} 的权限设置为 ${perm}，不符合要求，标准值为：${file_perms[$file]}；"
+            result_status=1
+          fi
+        else
+          outputs+="文件或目录：${file} 不存在，无法检查其权限设置；"
+          result_status=1
+        fi
+      done
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: 750,750,600,750,750,600,600,644,750,600,644,750,750,644,750,750
+    harm:
+      检查点1:/etc/rc.d/init.d/文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/tmp文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/xinetd.conf文件权限是否符合规范,该核查的判断值（是否通过）：600;检查点1:/etc/rc5.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/rc4.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/security目录权限是否符合规范,该核查的判断值（是否通过）：600;检查点1:/etc/shadow文件权限是否符合规范,该核查的判断值（是否通过）：600;检查点1:/etc/passwd文件权限是否符合规范,该核查的判断值（是否通过）：644;检查点1:/etc/rc3.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:检查系统引导器配置文件权限,该核查的判断值（是否通过）：600;检查点1:/etc/services文件权限是否符合规范,该核查的判断值（是否通过）：644;检查点1:/etc/rc6.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/rc1.d/文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/group文件权限是否符合规范,该核查的判断值（是否通过）：644;检查点1:/etc/rc0.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/rc2.d文件权限是否符合规范,该核查的判断值（是否通过）：750;
+    solution: |-
+      chmod 750 /etc/rc.d/init.d
+      chmod 750 /tmp
+      chmod 600 /etc/xinetd.conf
+      
+      补充说明：低版本的Linux系统采用inetd.conf配置文件，执行命令:chmod 600 /etc/inetd.conf
+      chmod 750 /etc/rc5.d
+      chmod 750 /etc/rc4.d
+      chmod 600 /etc/security
+      应将权限配置为600以下，例如：chmod 400 /etc/shadow
+      chmod 644 /etc/passwd
+      chmod 750 /etc/rc3.d
+      如果/etc/grub.conf文件存在，且非链接文件，则执行chmod 600 /etc/grub.conf;
+      
+      如果/boot/grub/grub.conf文件存在，则执行chmod 600 /boot/grub/grub.conf;
+      
+      如果/etc/lilo.conf文件存在，则执行chmod 600 /etc/lilo.conf;
+      
+      如果/etc/grub2.cfg文件存在，且非链接文件，则执行chmod 600 /etc/grub2.cfg;
+      
+      如果/boot/grub2/grub.cfg件存在，则执行chmod 600 /boot/grub2/grub.cfg。
+      chmod 644 /etc/services
+      chmod 750 /etc/rc6.d
+      chmod 750 /etc/rc1.d
+      chmod 644 /etc/group
+      chmod 750 /etc/rc0.d/
+      chmod 750 /etc/rc2.d
+  - uid: CHK0010
+    description: 检查用户umask设置
+    riskLevel: 5
+    query: |-
+      #!/bin/bash
+
+      check_umask_in_file() {
+        local file=$1
+        local expected_umask=$2
+
+        if [[ -f "$file" ]]; then
+          umask_in_file=$(grep -Po "^umask\s+\K\d+" "$file")
+          if [[ "$umask_in_file" != "$expected_umask" ]]; then
+            return 1
+          fi
+        fi
+
+        return 0
+      }
+
+      outputs="检查用户umask设置，"
+      expected_umask=22
+      result_status=0
+
+      check_umask_in_file "/etc/profile" "$expected_umask" || {
+        outputs+="文件：/etc/profile 的umask设置为 ${umask_in_file}，不符合要求，标准值为：${expected_umask}；"
+        result_status=1
+      }
+
+      check_umask_in_file "/etc/bashrc" "$expected_umask" || {
+        outputs+="文件：/etc/bashrc 的umask设置为 ${umask_in_file}，不符合要求，标准值为：${expected_umask}；"
+        result_status=1
+      }
+
+      check_umask_in_file "/etc/csh.login" "$expected_umask" || {
+        outputs+="文件：/etc/csh.login 的umask设置为 ${umask_in_file}，不符合要求，标准值为：${expected_umask}；"
+        result_status=1
+      }
+
+      check_umask_in_file "/etc/csh.cshrc" "$expected_umask" || {
+        outputs+="文件：/etc/csh.cshrc 的umask设置为 ${umask_in_file}，不符合要求，标准值为：${expected_umask}；"
+        result_status=1
+      }
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: '22'
+    harm: 检查点1:检查用户umask设置,该核查的判断值（是否通过）：22;
+    solution: |-
+      1.修改对应配置文件，按需修改对应配置或在文件的最后一行添加 umask 022
+      
+      若系统shell为bash，修改/etc/profile(对新建用户生效)，/etc/bashrc或/etc/bash.bashrc(对所有用户生效)
+      
+      若系统shell为csh，修改/etc/csh.login(对新建用户生效)，/etc/csh.cshrc(对所有用户生效)
+      
+      2.执行 source 配置文件，重新加载配置文件；例如：source /etc/bashrc
+      
+      3.执行 umask 命令，查看配置结果
+  - uid: CHK0011
+    description: 检查重要文件属性设置
+    riskLevel: 5
+    query: |-
+      #!/bin/bash
+
+      check_file_immutable() {
+        local file=$1
+        if [[ -f "$file" ]]; then
+          lsattr "$file" | grep -q "^-+i-+"
+          return $?
+        fi
+        return 0
+      }
+
+      outputs="检查重要文件属性设置，"
+      result_status=0
+
+      check_file_immutable "/etc/gshadow" || {
+        outputs+="文件：/etc/gshadow 的属性不是不可变，不符合要求，标准属性为：不可变；"
+        result_status=1
+      }
+
+      check_file_immutable "/etc/shadow" || {
+        outputs+="文件：/etc/shadow 的属性不是不可变，不符合要求，标准属性为：不可变；"
+        result_status=1
+      }
+
+      check_file_immutable "/etc/group" || {
+        outputs+="文件：/etc/group 的属性不是不可变，不符合要求，标准属性为：不可变；"
+        result_status=1
+      }
+
+      check_file_immutable "/etc/passwd" || {
+        outputs+="文件：/etc/passwd 的属性不是不可变，不符合要求，标准属性为：不可变；"
+        result_status=1
+      }
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: /-+i-+/,/-+i-+/,/-+i-+/,/-+i-+/
+    harm:
+      检查点1:检查/etc/gshadow文件属性,该核查的判断值（是否通过）：/-+i-+/;检查点1:检查/etc/shadow文件属性,该核查的判断值（是否通过）：/-+i-+/;检查点1:检查/etc/group文件属性,该核查的判断值（是否通过）：/-+i-+/;检查点1:检查/etc/passwd文件属性,该核查的判断值（是否通过）：/-+i-+/;
+    solution: |-
+      执行chattr +i /etc/gshadow
+      
+      如果不支持chattr,编辑/etc/fstab
+      
+      在相应的reiserfs系统的选项中添加"user_xattr,attrs"这两个选项，然后重启主机。
+      执行chattr +i /etc/shadow
+      
+      如果不支持chattr,编辑/etc/fstab
+      
+      在相应的reiserfs系统的选项中添加"user_xattr,attrs"这两个选项，然后重启主机。
+      执行chattr +i /etc/group
+      
+      如果不支持chattr,编辑/etc/fstab
+      
+      在相应的reiserfs系统的选项中添加"user_xattr,attrs"这两个选项，然后重启主机。
+      执行chattr +i /etc/passwd
+      
+      如果不支持chattr,编辑/etc/fstab
+      
+      在相应的reiserfs系统的选项中添加"user_xattr,attrs"这两个选项，然后重启主机。
+  - uid: CHK0012
+    description: 检查是否设置ssh登录前警告Banner
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      outputs="检查是否设置ssh登录前警告Banner，"
+      status=0
+
+      # 检查ssh服务是否开启
+      ssh_service_status=$(systemctl is-active sshd)
+
+      if [[ "$ssh_service_status" != "active" ]]; then
+          outputs+="SSH服务未开启，"
+          status=1
+      else
+          outputs+="SSH服务已开启，"
+          # 检查是否设置了ssh登录前警告Banner
+          ssh_banner_set=$(grep "^Banner\s+.+" /etc/ssh/sshd_config)
+
+          if [[ -z "$ssh_banner_set" ]]; then
+              outputs+="未设置ssh登录前警告Banner，"
+              status=1
+          else
+              outputs+="已设置ssh登录前警告Banner，"
+          fi
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: 0,sshd,/Banner\s+.+/
+    harm:
+      检查点1:ssh服务未开启,该核查的判断值（是否通过）：0;检查点2:ssh服务开启,该核查的判断值（是否通过）：sshd;检查点2:是否设置ssh登录前警告Banner,该核查的判断值（是否通过）：/Banner\s+.+/;
+    solution: |-
+      nan
+      nan
+      1. 执行如下命令创建ssh banner信息文件：
+      
+      #touch /etc/ssh_banner
+      
+      #chown bin:bin /etc/ssh_banner
+      
+      #chmod 644 /etc/ssh_banner
+      
+      #echo " Authorized only. All activity will be monitored and reported " > /etc/ssh_banner
+      
+      可根据实际需要修改该文件的内容。
+      
+      2. 修改/etc/ssh/sshd_config文件，添加如下行：
+      
+      Banner /etc/ssh_banner
+      
+      3.重启sshd服务：
+      
+      #/etc/init.d/sshd restart 或者 service sshd restart
+  - uid: CHK0013
+    description: 检查是否对登录进行日志记录
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      outputs="检查是否对登录进行日志记录，"
+      status=0
+
+      # 检查是否记录成功登陆日志
+      login_log=$(last -n 1)
+
+      if [[ -z "$login_log" ]]; then
+          outputs+="未记录成功登陆日志，"
+          status=1
+      else
+          outputs+="已记录成功登陆日志，"
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: /.+/
+    harm: 检查点1:检查是否记录成功登陆日志,该核查的判断值（是否通过）：/.+/;
+    solution: |-
+      登录日志文件为/var/log/wtmp,/var/log/utmp.这2个文件中记录着所有登录过主机的用户，时间，来源等内容，这个文件不具可读性，可用last命令来看。
+      
+      如果命令无结果，请联系管理员。
+  - uid: CHK0014
+    description: 检查是否启用cron行为日志功能
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      outputs="检查是否启用cron行为日志功能，"
+      status=0
+
+      # 检查syslog-ng是否启用记录cron行为日志功能
+      syslog_ng_check=$(grep -P 'filter f_cron\s+\{\s+facility\(cron\);\s+\};' /etc/syslog-ng/syslog-ng.conf)
+
+      if [[ -z "$syslog_ng_check" ]]; then
+          outputs+="syslog-ng未启用记录cron行为日志功能，"
+          status=1
+      else
+          outputs+="syslog-ng已启用记录cron行为日志功能，"
+      fi
+
+      # 检查rsyslog是否启用记录cron行为日志功能
+      rsyslog_check=$(grep 'cron.*' /etc/rsyslog.conf)
+
+      if [[ -z "$rsyslog_check" ]]; then
+          outputs+="rsyslog未启用记录cron行为日志功能，"
+          status=1
+      else
+          outputs+="rsyslog已启用记录cron行为日志功能，"
+      fi
+
+      # 检查syslog是否启用记录cron行为日志功能
+      syslog_check=$(grep 'cron.*' /etc/syslog.conf)
+
+      if [[ -z "$syslog_check" ]]; then
+          outputs+="syslog未启用记录cron行为日志功能，"
+          status=1
+      else
+          outputs+="syslog已启用记录cron行为日志功能，"
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: TRUE,cron.*,cron.*
+    harm:
+      检查点1:syslog-ng是否启用记录cron行为日志功能,该核查的判断值（是否通过）：TRUE;检查点2:rsyslog是否启用记录cron行为日志功能,该核查的判断值（是否通过）：cron.*;检查点3:syslog是否启用记录cron行为日志功能,该核查的判断值（是否通过）：cron.*;
+    solution: |-
+      在/etc/syslog-ng/syslog-ng.conf中添加
+      
+      filter f_cron       { facility(cron); };
+      
+      destination cron { file("/var/log/cron"); };
+      
+      log { source(src); filter(f_cron); destination(cron); };
+      
+      其中/var/log/cron为日志文件。
+      
+      如果该文件不存在，则创建该文件，命令为：
+      
+      touch /var/log/cron，并修改权限为775.命令为：chmod 775 /var/log/cron.      
+      编辑/etc/rsyslog.conf文件，
+      
+      配置：
+      
+      cron.*       /var/log/cron ，
+      
+      其中/var/log/cron为日志文件。
+      
+      如果该文件不存在，则创建该文件，命令为：
+      
+      touch /var/log/cron，并修改权限为775.命令为：chmod 775 /var/log/cron.              
+      编辑/etc/syslog.conf文件，
+      
+      配置：
+      
+      cron.*       /var/log/cron ，
+      
+      其中/var/log/cron为日志文件。
+      
+      如果该文件不存在，则创建该文件，命令为：
+      
+      touch /var/log/cron，并修改权限为775.命令为：chmod 775 /var/log/cron.
+  - uid: CHK0015
+    description: 检查是否配置远程日志功能
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      outputs="检查是否配置远程日志功能，"
+      status=0
+
+      # 检查syslog-ng是否配置远程日志功能
+      syslog_ng_check=$(grep -P 'destination logserver \{ udp\("\d+\.\d+\.\d+\.\d+" port\(514\)\); \}' /etc/syslog-ng/syslog-ng.conf)
+
+      if [[ -z "$syslog_ng_check" ]]; then
+          outputs+="syslog-ng未配置远程日志功能，"
+          status=1
+      else
+          outputs+="syslog-ng已配置远程日志功能，"
+      fi
+
+      # 检查rsyslog是否配置远程日志功能
+      rsyslog_check=$(grep -P '*\.*\s*@(\d+\.\d+\.\d+\.\d+|.+)' /etc/rsyslog.conf)
+
+      if [[ -z "$rsyslog_check" ]]; then
+          outputs+="rsyslog未配置远程日志功能，"
+          status=1
+      else
+          outputs+="rsyslog已配置远程日志功能，"
+      fi
+
+      # 检查syslog是否配置远程日志功能
+      syslog_check=$(grep -P '*\.*\s*@(\d+\.\d+\.\d+\.\d+|.+)' /etc/syslog.conf)
+
+      if [[ -z "$syslog_check" ]]; then
+          outputs+="syslog未配置远程日志功能，"
+          status=1
+      else
+          outputs+="syslog已配置远程日志功能，"
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: set,/\d+\.\d*\.\d*\.\d*|.+/,/\d+\.\d*\.\d*\.\d*|.+/
+    harm:
+      检查点1:syslog-ng是否配置远程日志功能,该核查的判断值（是否通过）：set;检查点2:rsyslog是否配置远程日志功能,该核查的判断值（是否通过）：/\d+\.\d*\.\d*\.\d*|.+/;检查点3:syslog是否配置远程日志功能,该核查的判断值（是否通过）：/\d+\.\d*\.\d*\.\d*|.+/;
+    solution: |
+      在/etc/syslog-ng/syslog-ng.conf中配置destination logserver { udp("10.10.10.10" port(514)); };
+      
+      log { source(src); destination(logserver); };
+      
+      可以将此处10.10.10.10替换为实际的IP
+      修改配置文件vi /etc/rsyslog.conf，
+      
+      加上这一行：
+      
+      *.*                    @192.168.0.1
+      
+      可以将"*.*"替换为你实际需要的日志信息。比如：kern.* ; mail.* 等等。
+      
+      可以将此处192.168.0.1替换为实际的IP或域名(域名格式形如：www.nsfocus.com,根据具体情况填写)。
+      
+      
+      修改配置文件vi /etc/syslog.conf，
+      
+      加上这一行：
+      
+      *.*                    @192.168.0.1
+      
+      可以将"*.*"替换为你实际需要的日志信息。比如：kern.* ; mail.* 等等。
+      
+      可以将此处192.168.0.1替换为实际的IP或域名(域名格式形如：www.nsfocus.com,根据具体情况填写)。
+  - uid: CHK0016
+    description: 检查日志文件是否非全局可写
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      outputs="检查日志文件是否非全局可写，"
+      status=0
+
+      # 文件列表
+      files=("/var/log/mail" "/var/log/boot.log" "/var/log/localmessages" "/var/log/secure" "/var/log/messages" "/var/log/cron" "/var/log/spooler" "/var/log/maillog")
+
+      # 预期权限列表
+      expected_perms=("775" "775" "775" "775" "755" "775" "775" "775")
+
+      for index in ${!files[@]}; do
+        file=${files[$index]}
+        expected_perm=${expected_perms[$index]}
+
+        if [ -f "$file" ]; then
+          actual_perm=$(stat -c "%a" $file)
+
+          if [ "$actual_perm" != "$expected_perm" ]; then
+            outputs+="文件$file的权限不符合预期，实际权限为：$actual_perm，预期权限为：$expected_perm。"
+            status=1
+          else
+            outputs+="文件$file的权限符合预期，权限为：$actual_perm。"
+          fi
+        else
+          outputs+="文件$file不存在。"
+          status=1
+        fi
+      done
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: 775,775,775,775,755,775,775,775
+    harm:
+      检查点1:检查/var/log/mail文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/boot.log是否是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/localmessages文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/secure文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/messages文件是否不可被其他用户修改,该核查的判断值（是否通过）：755;检查点1:检查/var/log/cron日志文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/spooler文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/maillog文件是否other用户不可写,该核查的判断值（是否通过）：775;
+    solution: |-
+      执行命令：chmod 775 /var/log/mail
+      执行命令：chmod 775 /var/log/boot.log
+      执行命令：chmod 775 /var/log/localmessages
+      执行命令：chmod 775 /var/log/secure
+      执行命令：chmod 755 /var/log/messages
+      执行命令：chmod 775 /var/log/cron
+      执行命令：chmod 775 /var/log/spooler
+      执行命令：chmod 775 /var/log/maillog
+  - uid: CHK0017
+    description: 检查安全事件日志配置
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      outputs="检查安全事件日志配置，"
+      status=0
+
+      # 配置文件列表
+      files=("/etc/syslog-ng/syslog-ng.conf" "/etc/rsyslog.conf" "/etc/syslog.conf")
+
+      # 预期配置列表
+      expected_configs=("filter f_msgs { level(err) or facility(kern) and level(debug) or facility(daemon) and level(notice); }"
+        "*.err;kern.debug;daemon.notice                          /var/adm/messages"
+        "*.err;kern.debug;daemon.notice                          /var/adm/messages")
+
+      for index in ${!files[@]}; do
+        file=${files[$index]}
+        expected_config=${expected_configs[$index]}
+
+        if [ -f "$file" ]; then
+          actual_config=$(awk -v RS= '/^'$expected_config'/{print}' $file)
+
+          if [ -z "$actual_config" ]; then
+            outputs+="配置文件$file中没有找到预期的配置，预期配置为：$expected_config。"
+            status=1
+          else
+            outputs+="配置文件$file中的配置符合预期，配置为：$actual_config。"
+          fi
+        else
+          outputs+="配置文件$file不存在。"
+          status=1
+        fi
+      done
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: valid,valid,valid
+    harm:
+      检查点1:检查syslog-ng是否配置安全事件日志,该核查的判断值（是否通过）：valid;检查点2:检查rsyslog是否配置安全事件日志,该核查的判断值（是否通过）：valid;检查点3:检查syslog是否配置安全事件日志,该核查的判断值（是否通过）：valid;
+    solution: |
+      编辑/etc/syslog-ng/syslog-ng.conf
+      
+      配置：
+      
+      filter f_msgs { level(err) or facility(kern) and level(debug) or facility(daemon) and level(notice); };
+      
+      destination msgs { file("/var/adm/msgs"); };
+      
+      log { source(src); filter(f_msgs); destination(msgs); };
+      
+      其中/var/adm/msgs为日志文件。
+      
+      如果该文件不存在，则创建该文件，命令为：
+      
+      touch /var/adm/msgs，并修改权限为666.命令为：chmod 666 /var/adm/msgs.   
+      
+      重启日志服务：
+      
+      #/etc/init.d/syslog restart 或者 service syslog restart
+      编辑/etc/rsyslog.conf
+      
+      配置：
+      
+      *.err;kern.debug;daemon.notice                          /var/adm/messages
+      
+      其中/var/adm/messages为日志文件。
+      
+      如果该文件不存在，则创建该文件，命令为：
+      
+      touch /var/adm/messages，并修改权限为666.命令为：chmod 666 /var/adm/messages.   
+      
+      重启日志服务：
+      
+      #/etc/init.d/rsyslog restart 或者 service rsyslog restart
+      
+      
+      编辑/etc/syslog.conf
+      
+      配置：
+      
+      *.err;kern.debug;daemon.notice                          /var/adm/messages
+      
+      其中/var/adm/messages为日志文件。
+      
+      如果该文件不存在，则创建该文件，命令为：
+      
+      touch /var/adm/messages，并修改权限为666.命令为：chmod 666 /var/adm/messages.   
+      
+      重启日志服务：
+      
+      #/etc/init.d/syslog restart 或者 service syslog restart
+  - uid: CHK0018
+    description: 检查是否记录用户对设备的操作
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      outputs="检查是否记录用户对设备的操作，"
+      status=0
+
+      # 检查是否存在/var/log/pacct文件
+      if [ ! -f "/var/log/pacct" ]; then
+        outputs+="没有找到/var/log/pacct文件，用户的操作没有被记录。"
+        status=1
+      else
+        outputs+="/var/log/pacct文件存在，用户的操作被记录。"
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: not exist
+    harm: 检查点1:查看是否存在/var/log/pacct,该核查的判断值（是否通过）：not exist;
+    solution: |
+      通过设置日志文件可以对每个用户的每一条命令进行记录，这一功能默认是不开放的，为了打开它，需要安装pacct工具，并执行以下命令：
+      
+      #touch /var/log/pacct
+      
+      #accton /var/log/pacct
+      
+      执行读取命令lastcomm  [user name] –f /var/log/pacct
+  - uid: CHK0019
+    description: 检查是否配置su命令使用情况记录
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      outputs="检查是否配置su命令使用情况记录，"
+      status=0
+
+      # 检查是否存在/var/log/secure文件
+      if [ ! -f "/var/log/secure" ]; then
+        outputs+="没有找到/var/log/secure文件，su命令的使用情况没有被记录。"
+        status=1
+      else
+        outputs+="/var/log/secure文件存在，"
+
+        # 检查系统版本并对应检查配置文件
+        if [[ $(cat /etc/redhat-release 2>/dev/null) =~ 5\. ]]; then
+          file="/etc/syslog.conf"
+        elif [[ $(cat /etc/redhat-release 2>/dev/null) =~ 6\. ]]; then
+          file="/etc/rsyslog.conf"
+        elif [[ $(cat /etc/SuSE-release 2>/dev/null) =~ 9 ]]; then
+          file="/etc/syslog.conf"
+        else # Suse10, 11
+          file="/etc/syslog-ng/syslog-ng.conf"
+        fi
+
+        if grep -q "authpriv.*   /var/log/secure" $file; then
+          outputs+="su命令的使用情况已被正确记录在/var/log/secure文件中。"
+        else
+          outputs+="su命令的使用情况没有被正确记录在/var/log/secure文件中。"
+          status=1
+        fi
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$status}"
+      echo "$json_output"
+    expectedOutput: valid
+    harm: 检查点1:检查是否配置su命令使用情况记录,该核查的判断值（是否通过）：valid;
+    solution: |-
+      1.
+      
+      Redhat5.x之前(包括5.x):编辑/etc/syslog.conf,
+      
+      Redhat6.x之后(包括6.x):编辑/etc/rsyslog.conf,
+      
+      Suse 9:编辑/etc/syslog.conf,
+      
+      配置:
+      
+          authpriv.*   /var/log/secure
+      
+      2.
+      
+      Suse10, 11:
+      
+      编辑:/etc/syslog-ng/syslog-ng.conf。
+      
+      配置:
+      
+          filter f_secure     { facility(authpriv); };
+      
+          destination priverr { file("/var/log/secure"); };
+      
+          log { source(src); filter(f_secure); destination(priverr); };
+      
+      3.
+      
+      创建/var/log/secure文件
+      
+          touch /var/log/secure
+      
+      4.
+      
+      重启syslog服务
+      
+          #/etc/init.d/syslog restart 或者 service syslog restart
+  - uid: CHK0020
+    description: 检查是否禁止匿名用户登录FTP
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # Initialize status and output variables
+      vsftpd_status=1
+      wuftp_status=1
+      vsftpd_output=""
+      wuftp_output=""
+
+      # Check if vsftpd configuration exists
+      if [ -f /etc/vsftpd.conf ] || [ -f /etc/vsftpd/vsftpd.conf ]; then
+        anonymous_enable=$(grep -E "^anonymous_enable=" /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf | cut -d= -f2)
+        if [ "$anonymous_enable" = "NO" ]; then
+          vsftpd_status=0
+          vsftpd_output="VSFTP禁止匿名用户登录，核查值为：NO，标准值为：NO"
+        else
+          vsftpd_output="VSFTP允许匿名用户登录，核查值为：$anonymous_enable，标准值为：NO"
+        fi
+      else
+        vsftpd_output="VSFTP配置文件不存在"
+      fi
+
+      # Check if wu-ftp user exists
+      if ! grep -q "^ftp:" /etc/passwd; then
+        wuftp_status=0
+        wuftp_output="WU-FTP禁止匿名用户登录，无ftp用户"
+      else
+        wuftp_output="WU-FTP允许匿名用户登录，存在ftp用户"
+      fi
+
+      # If either check fails, set status to 1
+      status=$([ $vsftpd_status -eq 0 ] && [ $wuftp_status -eq 0 ]; echo $?)
+
+      # Generate output
+      output="检查是否禁止匿名用户登录FTP,"
+      output+="检查点1：${vsftpd_output}。检查点2：${wuftp_output}。"
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: TRUE,valid
+    harm: 检查点1:禁止匿名VSFTP用户登录,该核查的判断值（是否通过）：TRUE;检查点1:禁止匿名WU-FTP用户登录,该核查的判断值（是否通过）：valid;
+    solution: |-
+      编辑/etc/vsftpd.conf(或/etc/vsftpd/vsftpd.conf)文件，设置：anonymous_enable=NO
+      在/etc/passwd文件中，删除ftp用户
+  - uid: CHK0021
+    description: 检查使用IP协议远程维护的设备是否配置SSH协议，禁用telnet协议
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+
+      # Initialize status and output variables
+      ssh_status=1
+      telnet_status=1
+      ssh_output=""
+      telnet_output=""
+
+      # Check if sshd service is running
+      if systemctl is-active --quiet sshd; then
+          ssh_status=0
+          ssh_output="设备配置了SSH协议，SSH服务正在运行"
+      else
+          ssh_output="设备未配置SSH协议，SSH服务未运行"
+      fi
+
+      # Check if telnet service is disabled
+      if ! rpm -qa | grep -q telnet; then
+          telnet_status=0
+          telnet_output="设备禁用了telnet协议，未安装telnet服务"
+      else
+          telnet_disabled=$(grep -i "^disable\s*=\s*yes" /etc/xinetd.d/telnet)
+          if [ "$telnet_disabled" != "" ]; then
+              telnet_status=0
+              telnet_output="设备禁用了telnet协议，telnet服务已停止"
+          else
+              telnet_output="设备未禁用telnet协议，telnet服务正在运行"
+          fi
+      fi
+
+      # If either check fails, set status to 1
+      status=$([ $ssh_status -eq 0 ] && [ $telnet_status -eq 0 ]; echo $?)
+
+      # Generate output
+      output="检查使用IP协议远程维护的设备是否配置SSH协议，禁用telnet协议，检查结果如下：检查点1：${ssh_output}。检查点2：${telnet_output}。"
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: /.+/,sshd,sshd,/telnet\s*disable|disable\s*=\s*yes/i
+    harm:
+      检查点1:是否存在telnet进程,该核查的判断值（是否通过）：/.+/;检查点1:对于使用IP协议进行远程维护的设备,应配置使用SSH协议,该核查的判断值（是否通过）：sshd;检查点2:对于使用IP协议进行远程维护的设备,应配置使用SSH协议,该核查的判断值（是否通过）：sshd;检查点2:对于使用IP协议进行远程维护的设备,应禁止使用telnet协议,该核查的判断值（是否通过）：/telnet\s*disable|disable\s*=\s*yes/i;
+    solution: |-
+      nan
+      在网站上免费获取OpenSSH http://www.openssh.com/,并根据安装文件说明执行安装步骤
+      在网站上免费获取OpenSSH http://www.openssh.com/,并根据安装文件说明执行安装步骤
+      利用命令rpm -qa |grep telnet查看是否安装telnet 和telnet server  如果安装的话
+      
+      1、编辑/etc/xinetd.d/telnet, 修改 disable =  yes。
+      
+      2.激活xinetd服务。命令如下：
+      
+      # service xinetd restart
+      
+      如果没安装则说明禁用telnet服务
+  - uid: CHK0022
+    description: 检查是否禁止root用户远程登录
+    riskLevel: 7
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查是否禁止root用户远程telnet登录
+      telnet_check=$(grep "auth.*required.*pam_securetty.so" /etc/pam.d/login)
+      if [ $? -eq 0 ]; then
+          output+="检查是否禁止root用户远程telnet登录，当前配置符合要求，核查值为：${telnet_check}，标准值为：auth required pam_securetty.so；"
+      else
+          output+="检查是否禁止root用户远程telnet登录，当前配置不符合要求，核查值为：${telnet_check}，标准值为：auth required pam_securetty.so；"
+          status=1
+      fi
+
+      # 检查是否禁止root用户远程ssh登录
+      ssh_check=$(grep "^PermitRootLogin" /etc/ssh/sshd_config | awk '{print $2}')
+      if [ "${ssh_check}" = "no" ]; then
+          output+="检查是否禁止root用户远程ssh登录，当前配置符合要求，核查值为：${ssh_check}，标准值为：no。"
+      else
+          output+="检查是否禁止root用户远程ssh登录，当前配置不符合要求，核查值为：${ssh_check}，标准值为：no。"
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: TRUE,no
+    harm:
+      检查点1:检查是否禁止root用户远程telnet登录,该核查的判断值（是否通过）：TRUE;检查点1:检查是否禁止root用户远程ssh登录,该核查的判断值（是否通过）：no;
+    solution: |-
+      编辑 /etc/pam.d/login文件，配置auth required pam_securetty.so
+      
+      或：
+      
+      auth [user_unknown=ignore success=ok ignore=ignore default=bad]
+      
+      pam_securetty.so
+      
+      
+      修改/etc/ssh/sshd_config文件,配置PermitRootLogin no。重启服务，/etc/init.d/sshd restart 或者 service sshd restart。
+  - uid: CHK0023
+    description: 检查是否禁止root用户登录FTP
+    riskLevel: 5
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查是否禁止root用户登录VSFTP
+      vsftp_check=$(grep "^root$" /etc/vsftpd/ftpusers)
+      if [ $? -eq 0 ]; then
+          output+="检查是否禁止root用户登录VSFTP，当前配置符合要求，核查值为：${vsftp_check}，标准值为：root；"
+      else
+          output+="检查是否禁止root用户登录VSFTP，当前配置不符合要求，核查值为：${vsftp_check}，标准值为：root；"
+          status=1
+      fi
+
+      # 检查是否禁止root用户登录WU-FTP
+      wuftp_check=$(grep "^root$" /etc/ftpusers)
+      if [ $? -eq 0 ]; then
+          output+="检查是否禁止root用户登录WU-FTP，当前配置符合要求，核查值为：${wuftp_check}，标准值为：root。"
+      else
+          output+="检查是否禁止root用户登录WU-FTP，当前配置不符合要求，核查值为：${wuftp_check}，标准值为：root。"
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: valid,valid
+    harm: 检查点1:禁止root登录VSFTP,该核查的判断值（是否通过）：valid;检查点1:禁止root登录WU-FTP,该核查的判断值（是否通过）：valid;
+    solution: |-
+      1.编辑/etc/ftpusers(或/etc/vsftpd/ftpusers)文件
+      
+      2.添加root
+      在/etc/ftpusers文件中加入下列行
+      
+      root
+  - uid: CHK0024
+    description: 检查是否修改snmp默认团体字
+    riskLevel: 5
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查是否安装snmp服务
+      snmp_installed=$(rpm -qa | grep -i snmp)
+      if [ -z "${snmp_installed}" ]; then
+          output+="检查是否安装snmp服务，当前系统未安装snmp服务，核查值为：${snmp_installed}，标准值为：未安装；"
+      else
+          # 检查snmp团体字是否未使用private
+          private_check=$(grep "^com2sec.*private$" /etc/snmp/snmpd.conf)
+          if [ -z "${private_check}" ]; then
+              output+="检查snmp团体字是否未使用private，当前配置符合要求，核查值为：${private_check}，标准值为：未使用private；"
+          else
+              output+="检查snmp团体字是否未使用private，当前配置不符合要求，核查值为：${private_check}，标准值为：未使用private；"
+              status=1
+          fi
+
+          # 检查snmp团体字是否未使用public
+          public_check=$(grep "^com2sec.*public$" /etc/snmp/snmpd.conf)
+          if [ -z "${public_check}" ]; then
+              output+="检查snmp团体字是否未使用public，当前配置符合要求，核查值为：${public_check}，标准值为：未使用public。"
+          else
+              output+="检查snmp团体字是否未使用public，当前配置不符合要求，核查值为：${public_check}，标准值为：未使用public。"
+              status=1
+          fi
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: no,0,yes,0
+    harm:
+      检查点1:检查是否安装snmp服务,该核查的判断值（是否通过）：no;检查点2:检查snmp团体字是否未使用private,该核查的判断值（是否通过）：0;检查点2:检查配置文件/etc/snmp/snmpd.conf是否存在。,该核查的判断值（是否通过）：yes;检查点2:检查snmp团体字是否未使用public,该核查的判断值（是否通过）：0;
+    solution: |-
+      如果系统未安装snmp服务，则认为合规。
+      编辑/etc/snmp/snmpd.conf，修改private默认团体字为用户自定义团体字。
+      如果系统安装了snmp服务，请确保该文件存在。如果不存在，则在/etc/snmp/目录下创建该文件。
+      编辑/etc/snmp/snmpd.conf，修改public默认团体字为用户自定义团体字。
+  - uid: CHK0025
+    description: 检查系统openssh安全配置
+    riskLevel: 5
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查/etc/ssh/sshd_config或/etc/ssh2/sshd2_config文件是否存在
+      if [ -f "/etc/ssh/sshd_config" ]; then
+          file_path="/etc/ssh/sshd_config"
+      elif [ -f "/etc/ssh2/sshd2_config" ]; then
+          file_path="/etc/ssh2/sshd2_config"
+      else
+          output+="检查系统openssh安全配置，核查值为：文件不存在，标准值为：存在；"
+          status=1
+          echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+          exit 1
+      fi
+
+      # 检查是否配置Protocol 2
+      protocol_check=$(grep "^Protocol 2$" $file_path)
+      if [ -z "${protocol_check}" ]; then
+          output+="检查是否配置Protocol 2，核查值为：未配置，标准值为：已配置；"
+          status=1
+      fi
+
+      # 检查是否配置PermitRootLogin no
+      login_check=$(grep "^PermitRootLogin no$" $file_path)
+      if [ -z "${login_check}" ]; then
+          output+="检查是否配置PermitRootLogin no，核查值为：未配置，标准值为：已配置。"
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: valid
+    harm: 检查点1:检查系统openssh安全配置,该核查的判断值（是否通过）：valid;
+    solution: |-
+      1.确保/etc/ssh/sshd_config或/etc/ssh2/sshd2_config文件存在。如果不存在，则忽略下面配置步骤。
+      
+      2.在sshd_config或sshd2_config中配置：Protocol 2
+      
+      3.在sshd_config或sshd2_config中配置：PermitRootLogin no或PermitRootLogin NO
+  - uid: CHK001
+    description: 检查是否设置命令行界面超时退出
+    riskLevel: 7
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查/etc/profile文件是否存在
+      if [ ! -f "/etc/profile" ]; then
+          output+="检查命令行界面超时退出，核查值为：/etc/profile文件不存在，标准值为：存在；"
+          status=1
+          echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+          exit 1
+      fi
+
+      # 检查是否设置了TMOUT，并且其值不大于600秒
+      tmout_value=$(grep -E "^export TMOUT=[0-9]+" /etc/profile | cut -d'=' -f2)
+
+      if [ -z "${tmout_value}" ]; then
+          output+="检查命令行界面超时退出，核查值为：未设置TMOUT，标准值为：已设置并且值不大于600秒；"
+          status=1
+      elif [ ${tmout_value} -gt 600 ]; then
+          output+="检查命令行界面超时退出，核查值为：TMOUT的值大于600秒，标准值为：已设置并且值不大于600秒。"
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: '600'
+    harm: 检查点1:检查命令行界面超时时间,该核查的判断值（是否通过）：600;
+    solution: |-
+      以root账户执行，vi /etc/profile,增加 export TMOUT=600(单位：秒，可根据具体情况设定超时退出时间，要求不大于600秒),注销用户，再用该用户登录激活该功能
+  - uid: CHK002
+    description: 检查是否使用PAM认证模块禁止wheel组之外的用户su为root
+    riskLevel: 7
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查/etc/pam.d/su文件是否存在
+      if [ ! -f "/etc/pam.d/su" ]; then
+          output+="检查是否使用PAM认证模块禁止wheel组之外的用户su为root，核查值为：/etc/pam.d/su文件不存在，标准值为：存在；"
+          status=1
+          echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+          exit 1
+      fi
+
+      # 检查是否有相关的配置
+      wheel_conf=$(grep -P "auth\s+(sufficient|required)\s+pam_wheel.so" /etc/pam.d/su)
+
+      if [ -z "${wheel_conf}" ]; then
+          output+="检查是否使用PAM认证模块禁止wheel组之外的用户su为root，核查值为：未配置，标准值为：已配置。"
+          status=1
+      else
+          output+="检查是否使用PAM认证模块禁止wheel组之外的用户su为root，核查值为：已配置，标准值为：已配置。"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: /.+/
+    harm: 检查点1:检查是否使用PAM认证模块禁止wheel组之外的用户su为root,该核查的判断值（是否通过）：/.+/;
+    solution: |-
+      方法一：
+      
+      编辑su文件(vi /etc/pam.d/su)，在开头添加下面两行： 
+      
+      auth sufficient pam_rootok.so 和
+      
+      auth required pam_wheel.so group=wheel 这表明只有wheel组的成员可以使用su命令成为root用户。
+      
+      你可以把用户添加到wheel组，以使它可以使用su命令成为root用户。
+      
+      添加方法为：usermod –G wheel username
+      
+      
+      
+      方法二(适用于Centos7.x版本)：
+      
+      编辑su文件(vi /etc/pam.d/su)， 
+      
+      去掉 auth sufficient pam_rootok.so 和 auth  required  pam_wheel.so use_uid 行的注释，这表明只有wheel组的成员可以使用su命令成为root用户。
+      
+      你可以把用户添加到wheel组，以使它可以使用su命令成为root用户。
+      
+      添加方法为：usermod –G wheel username
+  - uid: CHK003
+    description: 检查是否删除了潜在危险文件
+    riskLevel: 7
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查潜在危险文件是否存在
+      for file in "hosts.equiv" ".netrc" ".rhosts"
+      do
+          filepath=$(find / -maxdepth 3 -name ${file} 2>/dev/null)
+          if [ ! -z "${filepath}" ]; then
+              output+="检查是否删除潜在危险文件，当前${file}文件仍存在，核查值为：存在，标准值为：不存在；"
+              status=1
+          else
+              output+="检查是否删除潜在危险文件，当前${file}文件已删除，核查值为：不存在，标准值为：不存在；"
+          fi
+      done
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: hosts.equiv,.netrc,.rhosts
+    harm: 检查点1:是否删除hosts.equiv文件,该核查的判断值（是否通过）：hosts.equiv;检查点1:是否删除.netrc 文件,该核查的判断值（是否通过）：.netrc;检查点1:是否删除.rhosts
+      文件,该核查的判断值（是否通过）：.rhosts;
+    solution: |-
+      1.执行命令find / -maxdepth 3 -name hosts.equiv 2>/dev/null
+      
+      2.进入到hosts.equiv文件存在的目录
+      
+      3.执行命令：mv hosts.equiv hosts.equiv.bak
+      1.执行命令find / -maxdepth 3 -name .netrc 2>/dev/null
+      
+      2.进入到.netrc文件存在的目录
+      
+      3.执行命令：mv .netrc .netrc.bak 
+      1.执行命令find / -maxdepth 3 -name .rhosts 2>/dev/null
+      
+      2.进入到.rhosts文件存在的目录
+      
+      3.执行命令：mv .rhosts .rhosts.bak
+  - uid: CHK004
+    description: 检查是否关闭系统信任机制
+    riskLevel: 7
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查系统信任机制文件是否存在
+      for file in "hosts.equiv" ".rhosts"
+      do
+          filepath=$(find / -maxdepth 2 -name ${file} 2>/dev/null)
+          if [ ! -z "${filepath}" ]; then
+              output+="检查是否关闭系统信任机制，当前${file}文件仍存在，核查值为：存在，标准值为：不存在；"
+              status=1
+          else
+              output+="检查是否关闭系统信任机制，当前${file}文件已删除，核查值为：不存在，标准值为：不存在；"
+          fi
+      done
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: 0,0
+    harm: 检查点1:检查是否存在equiv文件,该核查的判断值（是否通过）：0;检查点1:检查是否存在rhosts文件,该核查的判断值（是否通过）：0;
+    solution: |-
+      1.执行命令find / -maxdepth 2 -name hosts.equiv
+      
+      2.进入到. hosts.equiv文件存在的目录
+      
+      3.执行命令：mv hosts.equiv   hosts.equiv.bak 
+      1.执行命令find / -maxdepth 3 -type f -name .rhosts 2>/dev/null
+      
+      2.进入到.rhosts文件存在的目录
+      
+      3.执行命令：mv .rhosts .rhosts.bak
+  - uid: CHK005
+    description: 检查是否关闭不必要的服务和端口
+    riskLevel: 7
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 需要检查的服务列表
+      services="daytime printer sendmail nfs kshell lpd tftp discard ntalk bootps chargen ypbind ident nfslock echo time klogin"
+
+      for service in $services
+      do
+          # 使用chkconfig命令检查服务状态
+          service_status=$(chkconfig --list ${service} 2>/dev/null | grep -E '3:on|5:on')
+
+          if [ ! -z "${service_status}" ]; then
+              output+="检查是否关闭不必要的服务和端口，当前${service}服务仍在开启状态，核查值为：开启，标准值为：关闭；"
+              status=1
+          else
+              output+="检查是否关闭不必要的服务和端口，当前${service}服务已经关闭，核查值为：关闭，标准值为：关闭；"
+          fi
+      done
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput:
+      /开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i
+    harm:
+      检查点1:检查是否关闭daytime服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭printer服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭sendmail服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭nfs服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭kshell服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭lpd服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭tftp服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭discard服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭ntalk服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭bootps服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭chargen服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭ypbind服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭ident服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭nfslock服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭echo服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭time服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭klogin服务,该核查的判断值（是否通过）：/开启|启用|on/i;
+    solution: |-
+      chkconfig [--level levels] daytime off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] printer off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] sendmail off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] nfs off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] kshell off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] lpd off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] tftp off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] discard off
+      
+      chkconfig [--level levels] discard-udp off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] ntalk off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] bootps off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] chargen off
+      
+      chkconfig [--level levels] chargen-udp off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] ypbind off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] ident off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] nfslock off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] echo off
+      
+      chkconfig [--level levels] echo-udp off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] time off
+      
+      chkconfig [--level levels] time-udp off
+      
+      注:levels为运行级别,需要重启机器
+      chkconfig [--level levels] klogin off
+      
+      注:levels为运行级别,需要重启机器
+  - uid: CHK006
+    description: '检查系统core dump设置 '
+    riskLevel: 5
+    query: |-
+      #!/bin/sh
+
+      output=""
+      status=0
+
+      # 检查* soft core 0设置
+      soft_core=$(grep -Fx '* soft core 0' /etc/security/limits.conf)
+      if [ -z "${soft_core}" ]; then
+          output+="检查系统core dump设置，当前未设置'* soft core 0'，核查值为：未设置，标准值为：已设置；"
+          status=1
+      else
+          output+="检查系统core dump设置，当前已设置'* soft core 0'，核查值为：已设置，标准值为：已设置；"
+      fi
+
+      # 检查* hard core 0设置
+      hard_core=$(grep -Fx '* hard core 0' /etc/security/limits.conf)
+      if [ -z "${hard_core}" ]; then
+          output+="检查系统core dump设置，当前未设置'* hard core 0'，核查值为：未设置，标准值为：已设置；"
+          status=1
+      else
+          output+="检查系统core dump设置，当前已设置'* hard core 0'，核查值为：已设置，标准值为：已设置；"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: 0,0
+    harm: 检查点1:检查/etc/security/limits.conf是否设置* soft core 0,该核查的判断值（是否通过）：0;检查点1:检查/etc/security/limits.conf是否设置*
+      hard core 0,该核查的判断值（是否通过）：0;
+    solution: |-
+      在文件/etc/security/limits.conf中配置* soft core 0
+      在文件/etc/security/limits.conf中配置* hard core 0
+  - uid: CHK007
+    description: 检查root用户的path环境变量
+    riskLevel: 5
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 获取root用户的PATH环境变量
+      root_path=$(sudo -u root echo $PATH)
+
+      if [ -z "${root_path}" ]; then
+          output+="检查root用户的PATH环境变量，当前PATH环境变量为空，核查值为：空，标准值为：非空；"
+          status=1
+      else
+          # 检查PATH环境变量是否包含(.和..)的路径
+          if [[ "${root_path}" == *"."* ]] || [[ "${root_path}" == *".."* ]]; then
+              output+="检查root用户的PATH环境变量，当前PATH环境变量包含(.和..)的路径，核查值为：包含，标准值为：不包含；"
+              status=1
+          else
+              output+="检查root用户的PATH环境变量，当前PATH环境变量不包含(.和..)的路径，核查值为：不包含，标准值为：不包含；"
+          fi
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: /.+/
+    harm: 检查点1:检查root用户的path环境变量内容,该核查的判断值（是否通过）：/.+/;
+    solution: |-
+      修改文件/etc/profile或/root/.bash_profile 在环境变量$PATH中删除包含（.和..）的路径
+  - uid: CHK008
+    description: 检查系统是否禁用ctrl+alt+del组合键
+    riskLevel: 5
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 对于CentOS 7/RHEL 7，检查是否删除了/usr/lib/systemd/system/ctrl-alt-del.target
+      if [ -f /etc/redhat-release ]; then
+          ver=$(rpm -q --qf "%{VERSION}" $(rpm -q --whatprovides redhat-release))
+          major_ver=${ver%%.*}
+
+          if [ "$major_ver" -ge 7 ]; then
+              if [ -e /usr/lib/systemd/system/ctrl-alt-del.target ]; then
+                  output+="检查系统是否禁用ctrl+alt+del组合键，当前组合键没有被禁用，核查值为：FALSE，标准值为：TRUE"
+                  status=1
+              else
+                  output+="检查系统是否禁用ctrl+alt+del组合键，当前组合键已被禁用，核查值为：TRUE，标准值为：TRUE"
+              fi
+          fi
+      else
+          # 对于其他版本的Linux，检查/etc/inittab是否注释了ca::ctrlaltdel:/sbin/shutdown
+          if grep -Fxq "ca::ctrlaltdel:/sbin/shutdown" /etc/inittab
+          then
+              output+="检查系统是否禁用ctrl+alt+del组合键，当前组合键没有被禁用，核查值为：FALSE，标准值为：TRUE"
+              status=1
+          else
+              output+="检查系统是否禁用ctrl+alt+del组合键，当前组合键已被禁用，核查值为：TRUE，标准值为：TRUE"
+          fi
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: 'TRUE'
+    harm: 检查点1:检查系统是否禁用ctrl+alt+del组合键,该核查的判断值（是否通过）：TRUE;
+    solution: |-
+      centos7/rhel7:
+      
+      删除/usr/lib/systemd/system/ctrl-alt-del.target
+      
+      再次执行init q重新reload配置文件
+      
+      其他版本：
+      
+      编辑/etc/inittab，注释如下行ca::ctrlaltdel:/sbin/shutdown***，之后重启系统。
+  - uid: CHK009
+    description: 检查是否配置用户所需最小权限
+    riskLevel: 4
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 检查/etc/group文件的权限
+      group_permission=$(stat -c "%a" /etc/group)
+      if [ "$group_permission" != "644" ]; then
+          output+="检查/etc/group文件权限，当前权限不符合要求，核查值为：$group_permission，标准值为：644; "
+          status=1
+      else
+          output+="检查/etc/group文件权限，当前权限符合要求，核查值为：$group_permission，标准值为：644; "
+      fi
+
+      # 检查/etc/passwd文件的权限
+      passwd_permission=$(stat -c "%a" /etc/passwd)
+      if [ "$passwd_permission" != "644" ]; then
+          output+="检查/etc/passwd文件权限，当前权限不符合要求，核查值为：$passwd_permission，标准值为：644; "
+          status=1
+      else
+          output+="检查/etc/passwd文件权限，当前权限符合要求，核查值为：$passwd_permission，标准值为：644; "
+      fi
+
+      # 检查/etc/shadow文件的权限
+      shadow_permission=$(stat -c "%a" /etc/shadow)
+      if [ "$shadow_permission" != "600" ]; then
+          output+="检查/etc/shadow文件权限，当前权限不符合要求，核查值为：$shadow_permission，标准值为：600; "
+          status=1
+      else
+          output+="检查/etc/shadow文件权限，当前权限符合要求，核查值为：$shadow_permission，标准值为：600; "
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: 644,644,600
+    harm:
+      检查点1:检查/etc/group文件权限,该核查的判断值（是否通过）：644;检查点1:检查/etc/passwd文件权限,该核查的判断值（是否通过）：644;检查点1:检查/etc/shadow文件权限,该核查的判断值（是否通过）：600;
+    solution: |-
+      chmod 644 /etc/group
+      chmod 644 /etc/passwd
+      chmod 600 /etc/shadow
+  - uid: CHK0010
+    description: 检查密码重复使用次数限制
+    riskLevel: 4
+    query: |-
+        #!/bin/bash
+
+        output=""
+        status=0
+
+        # 获取操作系统类型
+        os_type=$(awk -F= '/^NAME/{print $2}' /etc/os-release | tr -d '"')
+
+        # 根据操作系统类型，选择需要检查的文件
+        if [[ $os_type =~ "Red Hat" ]]; then
+            file="/etc/pam.d/system-auth"
+        elif [[ $os_type =~ "SUSE Linux Enterprise Server 9" ]]; then
+            file="/etc/pam.d/passwd"
+        elif [[ $os_type =~ "SUSE Linux Enterprise Server" ]]; then
+            file="/etc/pam.d/common-password"
+        else
+            output="不支持的操作系统类型:$os_type"
+            status=2
+        fi
+
+        # 检查所选文件是否包含 "password sufficient pam_unix.so md5 shadow nullok try_first_pass use_authtok remember="
+        if [ -f "$file" ]; then
+            if grep -q "password sufficient pam_unix.so md5 shadow nullok try_first_pass use_authtok remember=" "$file"; then
+                output+="检查$file文件，密码重复使用次数设置符合要求，核查值为：valid; "
+            else
+                output+="检查$file文件，密码重复使用次数设置不符合要求，核查值为：invalid; "
+                status=1
+            fi
+        fi
+
+        # 输出结果
+        echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: valid
+    harm: 检查点1:检查密码重复使用次数限制,该核查的判断值（是否通过）：valid;
+    solution: |
+        Redhat:编辑/etc/pam.d/system-auth文件，
+        
+        Suse9:编辑/etc/pam.d/passwd文件，
+        
+        Suse10,Suse11:编辑/etc/pam.d/common-password文件，
+        
+        修改设置如下
+        
+        password sufficient pam_unix.so md5 shadow nullok try_first_pass use_authtok remember=5 
+        
+        补充操作说明
+        
+        只需在password sufficient这一行加上remember=5即可
+        
+        NIS系统无法生效，非NIS系统或NIS+系统能够生效。
+  - uid: CHK0011
+    description: 检查系统内核参数配置
+    riskLevel: 4
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 检查icmp_echo_ignore_broadcasts配置
+      if [[ $(cat /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts) -eq 1 ]]; then
+          output+="检查icmp_echo_ignore_broadcasts配置，配置符合要求，核查值为：1; "
+      else
+          output+="检查icmp_echo_ignore_broadcasts配置，配置不符合要求，核查值为：$(cat /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts); "
+          status=1
+      fi
+
+      # 检查send_redirects配置
+      if [[ $(cat /proc/sys/net/ipv4/conf/all/send_redirects) -eq 0 ]]; then
+          output+="检查send_redirects配置，配置符合要求，核查值为：0; "
+      else
+          output+="检查send_redirects配置，配置不符合要求，核查值为：$(cat /proc/sys/net/ipv4/conf/all/send_redirects); "
+          status=1
+      fi
+
+      # 检查accept_redirects配置
+      if [[ $(cat /proc/sys/net/ipv4/conf/all/accept_redirects) -eq 0 ]]; then
+          output+="检查accept_redirects配置，配置符合要求，核查值为：0; "
+      else
+          output+="检查accept_redirects配置，配置不符合要求，核查值为：$(cat /proc/sys/net/ipv4/conf/all/accept_redirects); "
+          status=1
+      fi
+
+      # 检查accept_source_route配置
+      if [[ $(cat /proc/sys/net/ipv4/conf/all/accept_source_route) -eq 0 ]]; then
+          output+="检查accept_source_route配置，配置符合要求，核查值为：0; "
+      else
+          output+="检查accept_source_route配置，配置不符合要求，核查值为：$(cat /proc/sys/net/ipv4/conf/all/accept_source_route); "
+          status=1
+      fi
+
+      # 检查ip_forward配置
+      if [[ $(cat /proc/sys/net/ipv4/ip_forward) -eq 0 ]]; then
+          output+="检查ip_forward配置，配置符合要求，核查值为：0; "
+      else
+          output+="检查ip_forward配置，配置不符合要求，核查值为：$(cat /proc/sys/net/ipv4/ip_forward); "
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+    expectedOutput: 1,0,0,0,0
+    harm:
+      检查点1:检查icmp_echo_ignore_broadcasts配置,该核查的判断值（是否通过）：1;检查点1:检查send_redirects配置,该核查的判断值（是否通过）：0;检查点1:是否禁止icmp重定向报文,该核查的判断值（是否通过）：0;检查点1:是否禁止icmp源路由,该核查的判断值（是否通过）：0;检查点1:检查ip_forward配置,该核查的判断值（是否通过）：0;
+    solution: |-
+      执行命令
+      
+      #sysctl -w net.ipv4.icmp_echo_ignore_broadcasts="1"
+      
+      修改后可查看文件
+      
+      cat /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 的值为1
+      
+      注：修改只能当次生效，重启系统需重新修改
+      执行命令
+      
+      #sysctl -w net.ipv4.conf.all.send_redirects="0"
+      
+      修改后可查看文件
+      
+      cat /proc/sys/net/ipv4/conf/all/send_redirects 的值为0
+      
+      注：修改只能当次生效，重启系统需重新修改
+      执行命令
+      
+      #sysctl -w net.ipv4.conf.all.accept_redirects="0"
+      
+      修改后可查看文件
+      
+      cat /proc/sys/net/ipv4/conf/all/accept_redirects 的值为0
+      
+      注：修改只能当次生效，重启系统需重新修改
+      执行命令
+      
+      #sysctl -w net.ipv4.conf.all.accept_source_route="0"
+      
+      修改后可查看文件 
+      
+      cat /proc/sys/net/ipv4/conf/all/accept_source_route 的值为0
+      
+      注：修改只能当次生效，重启系统需重新修改
+      执行命令
+      
+      #sysctl -w net.ipv4.ip_forward="0"
+      
+      修改后可查看文件
+      
+      cat /proc/sys/net/ipv4/ip_forward 的值为0
+      
+      注：修改只能当次生效，重启系统需重新修改
+  - uid: CHK0012
+    description: 检查是否设置系统引导管理器密码
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 检查是否设置grub密码
+      if [ -f /boot/grub/menu.lst ]; then
+          if grep -q "^password" /boot/grub/menu.lst; then
+              output+="检查是否设置grub密码，密码已设置; "
+          else
+              output+="检查是否设置grub密码，密码未设置; "
+              status=1
+          fi
+      else
+          output+="/boot/grub/menu.lst文件不存在; "
+          status=1
+      fi
+
+      # 检查是否设置lilo密码
+      if [ -f /etc/lilo.conf ]; then
+          if grep -q "^password" /etc/lilo.conf; then
+              output+="检查是否设置lilo密码，密码已设置; "
+          else
+              output+="检查是否设置lilo密码，密码未设置; "
+              status=1
+          fi
+      else
+          output+="/etc/lilo.conf文件不存在; "
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"${output}\",\"status\":${status}}"
+
+    expectedOutput: /[^\s]+/,/[^\s]+/,0,0
+    harm:
+      检查点1:检查是否设置grub密码,该核查的判断值（是否通过）：/[^\s]+/;检查点2:检查是否设置lilo密码,该核查的判断值（是否通过）：/[^\s]+/;检查点3:/boot/grub/menu.lst文件不存在,该核查的判断值（是否通过）：0;检查点3:/etc/lilo.conf文件不存在,该核查的判断值（是否通过）：0;
+    solution: |-
+      1.请确认系统引导器的类型为grub,如果不为grub,则忽略此检查点。
+      
+      2.如果/boot/grub/menu.lst文件存在，编辑/boot/grub/menu.lst文件,设置password=*（*为需要设置的密码。
+      
+      3.如果不存在，请检查grub是否正确安装，或/boot/grub/menu.lst文件是否被更名。
+      1.请确认系统引导器的类型为lilo,如果不为lilo,则忽略此检查点。
+      
+      2.如果/etc/lilo.conf文件存在，编辑/etc/lilo.conf文件,设置password=*（*为需要设置的密码。
+      
+      3.如果不存在，请检查lilo是否正确安装，或/etc/lilo.conf文件是否被更名。
+      nan
+      nan
+  - uid: CHK0013
+    description: 检查系统磁盘分区使用率
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      # 计算根目录的磁盘使用率
+      usage=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+
+      output="检测系统磁盘根分区已使用空间。当前使用率为：$usage%。"
+      status=0
+
+      # 如果使用率高于80%，则返回状态1
+      if [ $usage -gt 80 ]; then
+        output+="使用率超过80%，可能需要扩充磁盘容量。"
+        status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: '80'
+    harm: 检查点1:检测系统磁盘根分区已使用空间是否维持在80%以下,该核查的判断值（是否通过）：80;
+    solution: |-
+      如果磁盘动态分区空间不足，建议管理员扩充磁盘容量
+  - uid: CHK0014
+    description: 检查/usr/bin/目录下可执行文件的拥有者属性
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      # 列出所有具有s属性的文件
+      files=$(find /usr/bin -type f \( -perm -4000 -o -perm -2000 \))
+
+      status=0
+      outputs="检查/usr/bin/目录下的可执行文件的拥有者属性。"
+
+      for file in $files; do
+          uid=$(stat -c "%u" $file)
+          if [ $uid -gt 500 ]; then
+              outputs+="文件: $file 的拥有者的用户ID为：$uid ，大于500。"
+              status=1
+          fi
+      done
+
+      # 如果所有文件的拥有者的用户ID都小于等于500，那么就认为检查通过
+      if [ $status -eq 0 ]; then
+          outputs+="所有可执行文件的拥有者的用户ID都小于等于500，检查通过。"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: '500'
+    harm: 检查点1:检查/usr/bin/目录下的可执行文件的拥有者属性，当可执行文件设置s属性时，执行时可以获取其拥有者的权限。,该核查的判断值（是否通过）：500;
+    solution: |-
+      找出系统中所有含有“s”属性的文件，把不必要的“s”属性去掉，或者把不用的直接删除。
+      
+      # find /usr/bin -type f   \( -perm -04000 -o -perm -02000 \) -exec ls -lg {} \;
+      
+      # chmod a-s filename
+  - uid: CHK0015
+    description: 检查历史命令设置
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      status=0
+      outputs=""
+
+      # 获取HISTSIZE和HISTFILESIZE的值
+      histSize=$(grep -P "^HISTSIZE=" /etc/profile | cut -d'=' -f2)
+      histFileSize=$(grep -P "^HISTFILESIZE=" /etc/profile | cut -d'=' -f2)
+
+      # 检查HISTSIZE的值
+      if [[ $histSize =~ ^[0-9]+$ ]]; then
+          outputs+="检查保留历史命令的条数，当前值为：$histSize，满足要求。"
+      else
+          outputs+="检查保留历史命令的条数，当前值为：$histSize，不满足要求。"
+          status=1
+      fi
+
+      # 检查HISTFILESIZE的值
+      if [[ $histFileSize =~ ^[0-9]+$ ]]; then
+          outputs+="检查保留历史命令的记录文件大小，当前值为：$histFileSize，满足要求。"
+      else
+          outputs+="检查保留历史命令的记录文件大小，当前值为：$histFileSize，不满足要求。"
+          status=1
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: /\d+/,/\d+/
+    harm: 检查点1:检查保留历史命令的条数,该核查的判断值（是否通过）：/\d+/;检查点1:检查保留历史命令的记录文件大小,该核查的判断值（是否通过）：/\d+/;
+    solution: |-
+      编辑文件/etc/profile，根据实际需求，配置HISTSIZE=实际需求数值，系统默认值为1000
+      编辑文件/etc/profile，根据实际需求，配置HISTFILESIZE=实际需求数值，系统默认值为1000
+  - uid: CHK0016
+    description: 检查是否按用户分配账号
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      # 检查是否按用户分配账号
+      user_count=$(awk -F':' '($3 >= 1000 && $1 != "nobody" && $1 != "systemd-network" && $1 != "systemd-resolve" && $1 != "systemd-timesync" && $1 != "messagebus" && $1 != "avahi" && $1 != "colord" && $1 != "pulse" && $1 != "geoclue" && $1 != "gnome-initial-setup" && $1 != "gdm" && $1 != "gnome-shell" && $1 != "systemd-coredump" && $1 != "sshd" && $1 != "tcpdump" && $1 != "usbmux" && $1 != "unbound" && $1 != "rtkit" && $1 != "radvd" && $1 != "statd" && $1 != "uuidd" && $1 != "rpcuser" && $1 != "libstoragemgmt" && $1 != "openvpn" && $1 != "nm-openvpn" && $1 != "avahi-autoipd" && $1 != "rpc" && $1 != "chrony" && $1 != "lightdm") {print $1}' /etc/passwd | wc -l)
+
+      # 根据用户数量判断核查项目是否通过
+      status=0
+      if [ "$user_count" -eq 0 ]; then
+          status=1
+      fi
+
+      # 按照指定的JSON格式输出结果
+      result=$(echo -e "{\"outputs\":\"按用户分配账号的用户数量：$user_count\", \"status\":$status}")
+      echo "$result"
+    expectedOutput: '1'
+    harm: 检查点1:检查是否按用户分配账号,该核查的判断值（是否通过）：1;
+    solution: |-
+      为用户创建账号：
+      
+      #useradd username  #创建账号
+      
+      #passwd username   #设置密码
+      
+      修改权限：
+      
+      #chmod 750 directory  #其中755为设置的权限，可根据实际情况设置相应的权限，directory是要更改权限的目录)
+      
+      使用该命令为不同的用户分配不同的账号，设置不同的口令及权限信息等。
+  - uid: CHK0017
+    description: 检查FTP用户上传的文件所具有的权限
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      outputs=""
+      result_status=0
+
+      # 检查系统是否使用vsftp
+      if [ -f "/etc/vsftpd.conf" ]; then
+          file="/etc/vsftpd.conf"
+          expected_value="write_enable=YES"
+
+          # 检查文件是否存在
+          if [ -f "$file" ]; then
+              policy_value=$(grep "write_enable" "$file" | awk '{print $2}')
+              if [ "$policy_value" == "$expected_value" ]; then
+                  outputs+="限制FTP用户登录后上传文件的属性设置符合要求，"
+              else
+                  outputs+="限制FTP用户登录后上传文件的属性设置不符合要求，当前值为：$policy_value，期望值为：$expected_value，"
+                  result_status=1
+              fi
+          else
+              outputs+="文件 $file 不存在，无法检查FTP用户上传文件属性，"
+              result_status=1
+          fi
+
+          # 重启vsftpd服务
+          /etc/init.d/vsftpd restart
+
+      # 检查系统是否使用pure-ftp
+      elif [ -f "/etc/pure-ftpd/pure-ftpd.conf" ]; then
+          file="/etc/pure-ftpd/pure-ftpd.conf"
+          expected_value="Umask 177:077"
+
+          # 检查文件是否存在
+          if [ -f "$file" ]; then
+              policy_value=$(grep "Umask" "$file" | awk '{print $2}')
+              if [ "$policy_value" == "$expected_value" ]; then
+                  outputs+="限制FTP用户登录后上传文件的属性设置符合要求，"
+              else
+                  outputs+="限制FTP用户登录后上传文件的属性设置不符合要求，当前值为：$policy_value，期望值为：$expected_value，"
+                  result_status=1
+              fi
+          else
+              outputs+="文件 $file 不存在，无法检查FTP用户上传文件属性，"
+              result_status=1
+          fi
+
+          # 重启pure-ftpd服务
+          /etc/init.d/pure-ftpd restart
+
+      else
+          outputs+="系统未安装vsftp或pure-ftpd，无法检查FTP用户上传文件属性，"
+          result_status=0
+      fi
+
+      # 根据检查结果，生成json输出
+      json_output="{\"outputs\":\"$outputs\",\"status\":$result_status}"
+      echo "$json_output"
+    expectedOutput: 'TRUE'
+    harm: 检查点1:限制FTP用户登录后上传文件的属性,该核查的判断值（是否通过）：TRUE;
+    solution: |
+      如果系统使用vsftp：
+      
+      修改/etc/vsftpd.conf（或者为/etc/vsftpd/vsftpd.conf）
+      
+      # vi /etc/vsftpd.conf
+      
+      确保以下行未被注释掉，如果没有该行，请添加：
+      
+      write_enable=YES //允许上传。如果不需要上传权限，此项可不进行更改。
+      
+      ls_recurse_enable=YES
+      
+      local_umask=022 //设置用户上传文件的属性为755
+      
+      anon_umask=022 //匿名用户上传文件(包括目录)的 umask
+      
+      重启网络服务
+      
+      # /etc/init.d/vsftpd restart
+      
+      如果系统使用pure-ftp
+      
+      修改/etc/pure-ftpd/pure-ftpd.conf
+      
+      # vi /etc/pure-ftpd/pure-ftpd.conf
+      
+      确保以下行未被注释掉，如果没有该行，请添加：
+      
+      Umask                       177:077
+      
+      重启ftp服务
+      
+      #/etc/init.d/pure-ftpd restart
+
+  - uid: CHK0018
+    description: 检查日志文件权限设置
+    riskLevel: 3
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 检查日志服务类型并获取日志文件目录
+      if pgrep -x "rsyslogd" > /dev/null
+      then
+          logdir=$(cat /etc/rsyslog.conf | grep -v "^[[:space:]]*#" |sed '/^#/d' |sed '/^$/d' |awk '(($2!~/@/) && ($2!~/*/) && ($2!~/-/)) {print $2}')
+      elif pgrep -x "syslog-ng" > /dev/null
+      then
+          logdir=$(cat /etc/syslog-ng/syslog-ng.conf 2>/dev/null | grep -v "^[[:space:]]*#"|grep "^destination"|grep file|cut -d\" -f2)
+      else
+          logdir=$(cat /etc/syslog.conf 2>/dev/null | grep -v "^[[:space:]]*#"|sed '/^#/d' |sed '/^$/d' |awk '(($2!~/@/) && ($2!~/*/) && ($2!~/-/)) {print $2}')
+      fi
+
+      # 检查日志文件权限
+      for file in $logdir; do
+          if [ -f "$file" ]; then
+              perm=$(stat -c %A $file)
+              group_perm=$(echo $perm | cut -c 5-7)
+              other_perm=$(echo $perm | cut -c 8-10)
+              if [[ $group_perm =~ r-x|rw-|rwx ]] || [[ $other_perm =~ r-x|rw-|rwx ]]; then
+                  output+="检查日志文件权限设置，文件 $file 的权限设置不符合要求，核查值为：$perm，标准值为：除r-x,rw-,rwx外的所有值; "
+                  status=1
+              fi
+          fi
+      done
+
+      # 如果没有找到不符合标准的文件权限，添加通过检查的信息
+      if [ $status -eq 0 ]; then
+          output="检查日志文件权限设置，所有文件的权限都符合要求。"
+      fi
+
+      # 输出json
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: /(r-x|rw-|rwx)/
+    harm: 检查点1:检查日志文件权限设置,该核查的判断值（是否通过）：/(r-x|rw-|rwx)/;
+    solution: |-
+      1.如果为redhat，suse9,则备份/etc/syslog.conf(或/etc/rsyslog.conf)文件中配置的日志文件，如果为suse10，suse11，则备份/etc/syslog-ng文件中配置的日志文件.
+      
+      2.如果日志服务为syslogd，则执行：
+      
+          LOGDIR=`cat /etc/syslog.conf 2>/dev/null | grep -v "^[[:space:]]*#"|sed '/^#/d' |sed '/^$/d' |awk '(($2!~/@/) && ($2!~/*/) && ($2!~/-/)) {print $2}';`;ls -l $LOGDIR 2>/etc/null | grep  "^-";跳转至步骤3.
+      
+      如果日志服务为syslog-ng，则执行：
+      
+          LOGDIR=`cat /etc/syslog-ng/syslog-ng.conf 2>/dev/null | grep -v "^[[:space:]]*#"|grep "^destination"|grep file|cut -d\" -f2`;ls -l $LOGDIR 2>/dev/null | grep "^-";跳转至步骤3.
+      
+      如果日志服务为rsyslogd，则执行：
+      
+          LOGDIR=`cat /etc/rsyslog.conf | grep -v "^[[:space:]]*#" |sed '/^#/d' |sed '/^$/d' |awk '(($2!~/@/) && ($2!~/*/) && ($2!~/-/)) {print $2}'`;ls -l $LOGDIR 2>/etc/null | grep "^-";跳转至步骤3.
+      
+      3.步骤2列出的文件中，同组用户、其他用户权限中不能出现r-x,rw-,rwx。
+      
+      执行下列命令，修改步骤2中列出出来的不符合标准值的文件权限。
+      
+      例如修改权限为640
+      
+      #chmod 640 <filename>
+      
+      或者修改权限为600
+      
+      #chmod 600 <filename>
+      
+      注：权限值没有限定，只要满足同组用户、其他用户不出现r-x,rw-,rwx即可。
+  - uid: CHK0019
+    description: 检查是否设置ssh成功登录后Banner
+    riskLevel: 2
+    query: |-
+      #!/bin/bash
+
+      status=1
+      outputs=""
+
+      # 检查/etc/motd文件是否存在且不为空
+      if [ -s /etc/motd ]; then
+          status=0
+          outputs="检查是否设置ssh成功登录后Banner信息，已设置ssh成功登录后的Banner信息，满足要求。"
+      else
+          outputs="检查是否设置ssh成功登录后Banner信息，未设置ssh成功登录后的Banner信息，不满足要求。"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: 'TRUE'
+    harm: 检查点1:是否设置ssh成功登录后Banner信息,该核查的判断值（是否通过）：TRUE;
+    solution: |-
+      1.修改文件/etc/motd的内容，如没有该文件，则创建它。
+      
+      #echo "Login success. All activity will be monitored and reported " > /etc/motd根据实际需要修改该文件的内容
+  - uid: CHK0020
+    description: 检查是否限制FTP用户登录后能访问的目录
+    riskLevel: 2
+    query: |-
+      #!/bin/bash
+
+      status=1
+      outputs=""
+
+      # 检查vsftpd配置
+      if [ -e /etc/vsftpd.conf ]; then
+          if grep -q "^chroot_local_user=YES" /etc/vsftpd.conf; then
+              status=0
+              outputs+="检查vsftpd配置，FTP用户登录后的目录已被限制，满足要求。"
+          else
+              outputs+="检查vsftpd配置，FTP用户登录后的目录没有被限制，不满足要求。"
+          fi
+      else
+          status=0
+          outputs+="vsftpd配置文件不存在，假设未安装vsftpd，因此满足要求。"
+      fi
+
+      # 检查pure-ftp配置
+      if [ -e /etc/pure-ftpd/pure-ftpd.conf ]; then
+          if grep -q "^ChrootEveryone              yes" /etc/pure-ftpd/pure-ftpd.conf \
+              && grep -q "^AllowUserFXP                no" /etc/pure-ftpd/pure-ftpd.conf \
+              && grep -q "^AllowAnonymousFXP           no" /etc/pure-ftpd/pure-ftpd.conf; then
+              status=0
+              outputs+="检查pure-ftp配置，FTP用户登录后的目录已被限制，满足要求。"
+          else
+              outputs+="检查pure-ftp配置，FTP用户登录后的目录没有被限制，不满足要求。"
+          fi
+      else
+          status=0
+          outputs+="pure-ftp配置文件不存在，假设未安装pure-ftp，因此满足要求。"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: 'TRUE'
+    harm: 检查点1:检查是否限制FTP用户登录后能访问的目录,该核查的判断值（是否通过）：TRUE;
+    solution: |-
+      1.vsftp
+      
+      修改/etc/vsftpd.conf(或者/etc/vsfptd/vsftpd.conf)
+      
+      #vi /etc/vsftpd.conf
+      
+      确保以下行未被注释掉，如果没有该行，请添加：
+      
+      chroot_local_user=YES
+      
+      重启网络服务
+      
+      #/etc/init.d/vsftpd restart
+      
+      2.pure-ftp
+      
+      修改/etc/pure-ftpd/pure-ftpd.conf
+      
+      #vi /etc/pure-ftpd/pure-ftpd.conf
+      
+      确保以下行未被注释掉（并且值为以下值），如果没有该行，请添加：
+      
+      ChrootEveryone              yes
+      
+      AllowUserFXP                no
+      
+      AllowAnonymousFXP           no
+      
+      重启ftp服务
+      
+      #/etc/init.d/pure-ftpd restart
+  - uid: CHK0021
+    description: 检查拥有suid和sgid权限的文件
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 创建一个数组来存储需要检查的文件
+      declare -a files=(/usr/bin/chage /usr/bin/gpasswd /usr/bin/wall /usr/bin/chfn /usr/bin/chsh /usr/bin/newgrp /usr/bin/write /usr/sbin/usernetctl /usr/sbin/traceroute /bin/mount /bin/umount /bin/ping /sbin/netreport)
+
+      # 初始化状态和输出
+      status=0
+      outputs=""
+
+      # 循环检查每个文件
+      for file in "${files[@]}"; do
+          if [ -e "$file" ]; then
+              # 如果文件存在且具有suid和sgid权限，更新状态和输出
+              if [ -u "$file" -o -g "$file" ]; then
+                  status=1
+                  outputs+="$file具有suid或sgid权限，不满足要求。"
+              fi
+          fi
+      done
+
+      # 如果所有文件都满足要求，更新输出
+      if [ $status -eq 0 ]; then
+          outputs="所有文件有效。"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: all files valid
+    harm: 检查点1:检查重要文件是否存在suid和sgid权限,该核查的判断值（是否通过）：all files valid;
+    solution: |-
+      执行命令:
+      
+      find /usr/bin/chage /usr/bin/gpasswd /usr/bin/wall /usr/bin/chfn /usr/bin/chsh /usr/bin/newgrp /usr/bin/write /usr/sbin/usernetctl /usr/sbin/traceroute /bin/mount /bin/umount /bin/ping /sbin/netreport -type f -perm +6000 2>/dev/null
+      
+      如果存在输出结果，则使用chmod 755 文件名 命令修改文件的权限。
+      
+      例如：chmod a-s /usr/bin/chage
+  - uid: CHK0022
+    description: 检查telnet Banner 设置
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 设置初始状态和输出信息
+      status=1
+      outputs="telnet登录警告Banner未成功设置，核查值为：FALSE，标准值为：TRUE"
+
+      # 检查/etc/issue和/etc/issue.net文件的内容
+      for file in /etc/issue /etc/issue.net
+      do
+          if [ -f "$file" ]; then
+              file_content=$(cat "$file")
+              # 检查这些文件的内容是否非空
+              if [[ -n $file_content ]]; then
+                  status=0
+                  outputs="telnet登录警告Banner已成功设置，核查值为：TRUE，标准值为：TRUE"
+                  break
+              fi
+          fi
+      done
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: 'TRUE'
+    harm: 检查点1:检查是否更改默认的telnet登录警告Banner,该核查的判断值（是否通过）：TRUE;
+    solution: |-
+      1.修改telnet回显信息
+      
+      修改文件/etc/issue 和/etc/issue.net中的内容：
+      
+      #echo " Authorized users only. All activity may be monitored and reported " > /etc/issue
+      
+      #echo " Authorized users only. All activity may be monitored and reported " > /etc/issue.net
+      
+      可根据实际需要修改该文件的内容,但是不要出现系统敏感信息,如redhat,suse等。
+      
+      2.重启服务：
+      
+      # /etc/init.d/xinetd restart 或者 或者 service xinetd restart
+  - uid: CHK0023
+    description: 检查是否配置定时自动屏幕锁定（适用于具备图形界面的设备）
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 设置初始状态和输出信息
+      status=0
+      outputs="系统没有安装桌面环境，核查值为：N/A，标准值为：N/A"
+
+      # 检查是否存在桌面环境
+      if command -v gsettings &>/dev/null; then
+          # 获取相关设置
+          idle_delay=$(gsettings get org.gnome.desktop.session idle-delay 2>/dev/null)
+          idle_activation_enabled=$(gsettings get org.gnome.desktop.screensaver idle-activation-enabled 2>/dev/null)
+          screensaver_mode=$(gsettings get org.gnome.desktop.screensaver mode 2>/dev/null)
+          lock_enabled=$(gsettings get org.gnome.desktop.screensaver lock-enabled 2>/dev/null)
+          lock_delay=$(gsettings get org.gnome.desktop.screensaver lock-delay 2>/dev/null)
+
+          # 检查各项设置是否满足要求
+          if [[ -z $idle_delay ]] || [[ -z $idle_activation_enabled ]] || [[ -z $screensaver_mode ]] || [[ -z $lock_enabled ]] || [[ -z $lock_delay ]] || [[ $idle_activation_enabled != 'true' ]] || [[ $screensaver_mode != 'blank-only' ]] || [[ $lock_enabled != 'true' ]]; then
+              status=1
+              outputs="没有配置定时自动屏幕锁定，核查值为：FALSE，标准值为：TRUE"
+          else
+              outputs="已配置定时自动屏幕锁定，核查值为：TRUE，标准值为：TRUE"
+          fi
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: /\d+/,TRUE,blank-only,TRUE,TRUE,/\d+/,TRUE,/\d+/
+    harm:
+      检查点1:启用空闲激活时间,该核查的判断值（是否通过）：/\d+/;检查点1:启用空闲激活,该核查的判断值（是否通过）：TRUE;检查点1:启用屏保,该核查的判断值（是否通过）：blank-only;检查点1:启用屏幕锁定,该核查的判断值（是否通过）：TRUE;检查点2:启用激活空闲激活centos
+      7 ,该核查的判断值（是否通过）：TRUE;检查点2:黑屏至锁屏延迟时间（centos 7）,该核查的判断值（是否通过）：/\d+/;检查点2:启用屏幕锁定centos
+      7,该核查的判断值（是否通过）：TRUE;检查点2:启用空闲激活时间 （centos 7）,该核查的判断值（是否通过）：/\d+/;
+    solution: |-
+      在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；
+      
+      或使用命令：
+      
+      gconftool-2 --direct \  此处为回车换行
+      
+      --config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \  此处为回车换行
+      
+      --type int \  此处为回车换行
+      
+      --set /apps/gnome-screensaver/idle_delay 15  根据具体情况设置时间
+      在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；
+      
+      或用命令方式：
+      
+      gconftool-2 --direct \  此处为回车换行
+      
+      --config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \  此处为回车换行
+      
+      --type bool \  此处为回车换行
+      
+      --set /apps/gnome-screensaver/idle_activation_enabled true
+      在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；
+      
+      或使用命令：
+      
+      gconftool-2 --direct \  此处为回车换行
+      
+      --config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \  此处为回车换行
+      
+      --type string \  此处为回车换行
+      
+      --set /apps/gnome-screensaver/mode blank-only
+      在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；
+      
+      或使用命令：
+      
+      gconftool-2 --direct \  此处为回车换行
+      
+      --config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \  此处为回车换行  
+      
+      --type bool \  此处为回车换行
+      
+      --set /apps/gnome-screensaver/lock_enabled true
+      命令行方式：
+      
+      gsettings set org.gnome.desktop.screensaver idle-activation-enabled true
+      界面修改：
+      
+      应用程序——系统工具 ——设置——隐私——锁屏——黑屏至锁屏的等待时间
+      
+      命令行修改：
+      
+      gsettings set org.gnome.desktop.screensaver lock-delay 300 300为5分钟，可自行调整
+      界面配置：
+      
+      应用程序——系统工具 ——设置——隐私——锁屏——自动锁屏 打开
+      
+      命令行配置：
+      
+      gsettings set org.gnome.desktop.screensaver lock-enabled true
+      界面配置：
+      
+      应用程序——系统工具 ——设置——电源——节电——空白屏幕
+      
+      命令行配置：
+      
+      gsettings set org.gnome.desktop.session idle-delay 300 300为5分钟，可根据需要自行调整
+  - uid: CHK0024
+    description: 检查NFS（网络文件系统）服务配置
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 设置初始状态和输出信息
+      status=0
+      outputs=""
+
+      # 检查是否限制了NFS服务的访问IP范围
+      if grep -q "portmap: [0-9]" /etc/hosts.allow; then
+          outputs+="NFS服务已限制访问的IP范围，核查值为：TRUE，标准值为：TRUE；"
+      else
+          status=1
+          outputs+="NFS服务没有限制访问的IP范围，核查值为：FALSE，标准值为：TRUE；"
+      fi
+
+      # 检查NFS服务是否在运行
+      if [[ $(ps -ef | grep -E 'portmap|nfs' | grep -v grep) ]]; then
+          status=1
+          outputs+="NFS服务正在运行，核查值为：run，标准值为：notrun"
+      else
+          outputs+="NFS服务没有在运行，核查值为：notrun，标准值为：notrun"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: (portmap|nfs),notrun
+    harm:
+      检查点1:如果需要NFS服务，需要限制能够访问NFS服务的IP范围,该核查的判断值（是否通过）：(portmap|nfs);检查点2:如果没有必要，需要停止NFS服务,该核查的判断值（是否通过）：notrun;
+    solution: |
+      限制能够访问NFS服务的IP范围：
+      
+      编辑文件：vi /etc/hosts.allow
+      
+      增加一行:portmap: 允许访问的IP
+      停止nfs服务：
+      
+      Suse系统：/etc/init.d/nfsserver stop
+      
+      Redhat系统：/etc/init.d/nfs stop
+
+  - uid: CHK0025
+    description: 检查是否安装chkrootkit进行系统监测
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 初始化状态和输出
+      status=0
+      outputs=""
+
+      # 检查是否安装了chkrootkit
+      if which chkrootkit >/dev/null 2>&1; then
+          outputs+="已安装chkrootkit，核查值为：installed，标准值为：installed；"
+      else
+          status=1
+          outputs+="未安装chkrootkit，核查值为：not installed，标准值为：installed；"
+      fi
+
+      # 如果已经安装了chkrootkit，使用它检查系统是否存在rootkit
+      if [[ $status -eq 0 ]]; then
+          if chkrootkit -q 2>/dev/null | grep -q "INFECTED"; then
+              status=1
+              outputs+="系统可能存在rootkit，核查值为：infected，标准值为：not infected"
+          else
+              outputs+="系统未检测到rootkit，核查值为：not infected，标准值为：not infected"
+          fi
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: installed,infected|installed
+    harm:
+      检查点1:检查是否安装chkrootkit,该核查的判断值（是否通过）：installed;检查点1:检查系统是否安装rootkit,该核查的判断值（是否通过）：infected|installed;
+    solution: |-
+      软件可到chkrootkit的官方网下载:
+      
+      www.chkrootkit.org
+      
+      安装后，把chkrootkit加入到PATH环境变量中。例如:cp <chkrootkit路径> /sbin/
+      执行
+      
+      #chkrootkit -q 2>/dev/null
+      
+      如果条目中含有infected 或者 installed，需要判断是否为rootkit程序。
+  - uid: CHK0026
+    description: 检查是否删除与设备运行、维护等工作无关的账号
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 列出需要检查的用户
+      unwanted_users="adm lp mail uucp operator games gopher ftp nobody nobody4 noaccess listen webservd rpm dbus avahi mailnull smmsp nscd vcsa rpc rpcuser nfs sshd pcap ntp haldaemon distcache apache webalizer squid xfs gdm sabayon named"
+
+      output=""
+      status=0
+
+      # 检查是否存在不被锁定的不必要的用户
+      for user in $unwanted_users; do
+          if id -u "$user" >/dev/null 2>&1; then
+              if ! passwd -S "$user" 2>/dev/null | awk '{print $2}' | grep -q 'L\|LK'; then
+                  output+="存在未被锁定的、与设备运行、维护等工作无关的账号 $user; "
+                  status=1
+              fi
+          fi
+      done
+
+      # 如果所有不必要的用户都不存在或被锁定，添加一个表示检查通过的消息
+      if [ $status -eq 0 ]; then
+          output="所有与设备运行、维护等工作无关的账号已经被删除或锁定，核查通过。"
+      fi
+
+      # 输出json
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: ok
+    harm: 检查点1:是否删除与设备运行、维护等工作无关的账号,该核查的判断值（是否通过）：ok;
+    solution: |-
+      删除用户:#userdel username; 
+      
+      锁定用户：
+      
+      #usermod -L username
+      
+      只有具备超级用户权限的使用者方可使用.
+      
+      #usermod –U username可以解锁。
+      
+      补充操作说明
+      
+      需要锁定的用户：adm,lp,mail,uucp,operator,games,gopher,ftp,nobody,nobody4,noaccess,listen,webservd,rpm,dbus,avahi,mailnull,smmsp,nscd,vcsa,rpc,rpcuser,nfs,sshd,pcap,ntp,haldaemon,distcache,apache,webalizer,squid,xfs,gdm,sabayon,named。
+  - uid: CHK0027
+    description: 检查是否对系统账号进行登录限制
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 初始化状态和输出
+      status=0
+      outputs=""
+
+      # 需要锁定的用户列表
+      declare -a userlist=("adm" "lp" "mail" "uucp" "operator" "games" "gopher" "ftp" "nobody" "nobody4" "noaccess" "listen" "webservd" "rpm" "dbus" "avahi" "mailnull" "smmsp" "nscd" "vcsa" "rpc" "rpcuser" "nfs" "sshd" "pcap" "ntp" "haldaemon" "distcache" "apache" "webalizer" "squid" "xfs" "gdm" "sabayon" "named")
+
+      # 获取系统中所有的用户账号
+      IFS=$'\n'
+      for user in $(cut -d: -f1 /etc/passwd); do
+          if [[ " ${userlist[@]} " =~ " ${user} " ]]; then
+              status=1
+              outputs+="系统中存在不必要的用户账号：$user，核查值为：存在，标准值为：不存在；"
+          fi
+      done
+      unset IFS
+
+      # 如果没有发现不必要的用户账号
+      if [[ $status -eq 0 ]]; then
+          outputs+="系统中没有发现不必要的用户账号，核查值为：不存在，标准值为：不存在；"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: ok
+    harm: 检查点1:禁止系统账号进行交互式登录,该核查的判断值（是否通过）：ok;
+    solution: |-
+      执行命令passwd -l adm，锁定adm账户。
+      
+      若adm账户不存在，检查项也合规。
+      
+      补充说明：需要锁定账户有adm、daemon,bin,sys、lp、uucp、nuucp、smmsp。
+  - uid: CHK0028
+    description: 检查是否按组进行账号管理
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 初始化状态和输出
+      status=0
+      outputs=""
+
+      # 获取所有的用户
+      for user in $(cut -d: -f1 /etc/passwd); do
+          # 检查是否存在对应的用户组
+          if ! grep -q "^$user:" /etc/group; then
+              status=1
+              outputs+="用户$user没有对应的用户组，核查值为：不存在，标准值为：存在；"
+          fi
+      done
+
+      # 如果所有的用户都有对应的用户组
+      if [[ $status -eq 0 ]]; then
+          outputs+="所有的用户都有对应的用户组，核查值为：存在，标准值为：存在；"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: '1'
+    harm: 检查点1:检查是否按组进行账号管理,该核查的判断值（是否通过）：1;
+    solution: |-
+      1.执行备份：
+      
+      #cp -p /etc/group /etc/group.bak
+      
+      2.创建新的用户组
+      
+      #groupadd 组名
+      
+      #usermod -g 组名 -d 用户目录 -m 用户名
+      
+      把用户添加进入某个组(s)或参考usermod --help说明进行设置
+  - uid: CHK0029
+    description: 检查账户认证失败次数限制
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 初始化状态和输出
+      status=0
+      outputs=""
+
+      # 获取系统版本信息
+      os_version=$(cat /etc/*release*)
+
+      # 根据系统版本检查不同的配置文件和配置
+      if echo "$os_version" | grep -q "Red Hat"; then
+          config_file="/etc/pam.d/system-auth"
+      elif echo "$os_version" | grep -q "SUSE LINUX 9"; then
+          config_file="/etc/pam.d/passwd"
+      elif echo "$os_version" | grep -q "SUSE LINUX"; then
+          config_file_auth="/etc/pam.d/common-auth"
+          config_file_account="/etc/pam.d/common-account"
+          config_file_ssh="/etc/pam.d/sshd"
+      fi
+
+      # 检查deny和unlock_time参数是否存在
+      if ! grep -E "auth\s+required\s+pam_tally.so\s+deny=[0-9]+\s+unlock_time=[0-9]+" "$config_file" >/dev/null; then
+          status=1
+          outputs+="${config_file}中未找到deny和unlock_time参数设置，核查值为：未设置，标准值为：已设置；"
+      fi
+
+      # 检查account required pam_tally.so是否存在
+      if ! grep -E "account\s+required\s+pam_tally.so" "$config_file" >/dev/null; then
+          status=1
+          outputs+="${config_file}中未找到account required pam_tally.so配置，核查值为：未设置，标准值为：已设置；"
+      fi
+
+      # SUSE 10 和 SUSE 11 的额外检查
+      if [[ -n "$config_file_auth" && -n "$config_file_account" ]]; then
+          if ! grep -E "auth\s+required\s+pam_tally.so\s+deny=[0-9]+\s+unlock_time=[0-9]+\s+no_lock_time" "$config_file_auth" >/dev/null; then
+              status=1
+              outputs+="${config_file_auth}中未找到deny, unlock_time以及no_lock_time参数设置，核查值为：未设置，标准值为：已设置；"
+          fi
+
+          if ! grep -E "account\s+required\s+pam_tally.so" "$config_file_account" >/dev/null; then
+              status=1
+              outputs+="${config_file_account}中未找到account required pam_tally.so配置，核查值为：未设置，标准值为：已设置；"
+          fi
+      fi
+
+      # 对SSHD的额外检查
+      if [[ -n "$config_file_ssh" ]]; then
+          if ! grep -E "auth\s+required\s+pam_tally.so\s+deny=[0-9]+\s+unlock_time=[0-9]+\s+no_lock_time" "$config_file_ssh" >/dev/null; then
+              status=1
+              outputs+="${config_file_ssh}中未找到deny, unlock_time以及no_lock_time参数设置，核查值为：未设置，标准值为：已设置；"
+          fi
+
+          if ! grep -E "account\s+required\s+pam_tally.so" "$config_file_ssh" >/dev/null; then
+              status=1
+              outputs+="${config_file_ssh}中未找到account required pam_tally.so配置，核查值为：未设置，标准值为：已设置；"
+          fi
+      fi
+
+      # 如果所有检查都通过
+      if [[ $status -eq 0 ]]; then
+          outputs+="账户认证失败次数限制已配置，核查值为：已设置，标准值为：已设置。"
+      fi
+
+      # 输出结果
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: valid,valid
+    harm:
+      检查点1:检查是否配置账户认证失败次数限制,该核查的判断值（是否通过）：valid;检查点1:检查是否配置SSH方式账户认证失败次数限制,该核查的判断值（是否通过）：valid;
+    solution: |-
+      Redhat:
+      
+      编辑/etc/pam.d/system-auth文件
+      
+      配置:
+      
+      auth  required  pam_tally.so deny=5 unlock_time=600 
+      
+      account  required   pam_tally.so
+      
+      
+      
+      Suse9:
+      
+      编辑/etc/pam.d/passwd文件
+      
+      配置:
+      
+      auth  required  pam_tally.so deny=5 unlock_time=600 
+      
+      account  required   pam_tally.so
+      
+      
+      
+      Suse10，Suse11:
+      
+      编辑/etc/pam.d/common-auth文件
+      
+      配置:auth  required  pam_tally.so deny=5 unlock_time=600 no_lock_time
+      
+      编辑/etc/pam.d/common-account文件
+      
+      配置:account  required   pam_tally.so
+      
+      
+      
+      参数说明：
+      
+      deny        #连续认证失败次数超过的次数
+      
+      unlock_time  #锁定的时间，单位为秒
+      编辑/etc/pam.d/sshd文件
+      
+      在auth行下方添加：
+      
+      auth  required  pam_tally.so deny=5 unlock_time=600 no_lock_time
+      
+      在account行下方添加：
+      
+      account  required   pam_tally.so
+      
+      参数说明：
+      
+      deny        #连续认证失败次数超过的次数
+      
+      unlock_time  #锁定的时间，单位为秒
+      
+      
+      
+      如果系统版大于等于centos 6
+      
+      在auth行下方添加：
+      
+      auth  required  pam_tally2.so deny=5 unlock_time=600 
+      
+      在account行下方添加：
+      
+      account  required   pam_tally2.so
+  - uid: CHK0030
+    description: 检查是否限制远程登录IP范围
+    riskLevel: 1
+    query: |-
+      #!/bin/sh
+
+      # 检查是否限制远程登录IP范围
+      check_remote_login_ip_restrictions() {
+        # 检查hosts.deny文件
+        if [ -f "/etc/hosts.deny" ]; then
+          deny_line=$(grep -E '^[[:space:]]*all:[[:space:]]*all' /etc/hosts.deny | grep -Ev '(^#|^$)')
+          if [ -n "$deny_line" ]; then
+            deny_value="all:all"
+          else
+            deny_value=""
+          fi
+        else
+          deny_value=""
+        fi
+
+        # 检查hosts.allow文件
+        if [ -f "/etc/hosts.allow" ]; then
+          allow_line=$(grep -E '^[[:space:]]*[^#[:space:]]+[[:space:]]*:[[:space:]]*allow' /etc/hosts.allow | grep -Ev '(^#|^$)')
+          if [ -n "$allow_line" ]; then
+            allow_value="allow"
+          else
+            allow_value=""
+          fi
+        else
+          allow_value=""
+        fi
+
+        if [ -n "$deny_value" ] && [ -n "$allow_value" ]; then
+          echo '{"outputs":"检查通过：限制远程登录IP范围已配置","status":0}'
+        else
+          echo '{"outputs":"检查不通过：限制远程登录IP范围未配置","status":1}'
+        fi
+      }
+
+      # 检查限制远程登录IP范围
+      check_remote_login_ip_restrictions
+    expectedOutput: all:all,allow
+    harm:
+      检查点1:检查/etc/hosts.deny配置,该核查的判断值（是否通过）：all:all;检查点1:检查/etc/hosts.allow配置,该核查的判断值（是否通过）：allow;
+    solution: |-
+      编辑/etc/hosts.deny
+      
+      增加一行 all:all
+      
+      重启进程：
+      
+      #/etc/init.d/xinetd restart 或者 service xinetd restart
+      
+      
+      编辑/etc/hosts.allow
+      
+      增加一行 <service>: 允许访问的IP；举例如下：
+      
+      all:192.168.4.44:allow #允许单个IP；
+      
+      sshd:192.168.1.:allow #允许192.168.1的整个网段的PC通过SSH来访问本机
+      
+      重启进程：
+      
+      #/etc/init.d/xinetd restart 或者 service xinetd restart
+  - uid: CHK0031
+    description: 检查别名文件/etc/aliase（或/etc/mail/aliases）配置
+    riskLevel: 1
+    query: |-
+      #!/bin/sh
+
+      check_aliases() {
+        local file=$1
+        local unwanted_aliases="games ingres system toor uucp manager dumper operator decode root"
+        local outputs=""
+        local status=0
+
+        if [ -f $file ]; then
+          for alias in $unwanted_aliases; do
+            if grep -q "^$alias:" $file; then
+              outputs="$outputs 检查到 $file 文件中存在不必要的别名: $alias;"
+              status=1
+            fi
+          done
+        else
+          outputs="文件 $file 不存在。"
+          status=1
+        fi
+
+        echo $outputs
+        return $status
+      }
+
+      alias_result=$(check_aliases "/etc/aliases")
+      alias_status=$?
+      mail_alias_result=$(check_aliases "/etc/mail/aliases")
+      mail_alias_status=$?
+
+      # Combine outputs into one string
+      outputs="$alias_result $mail_alias_result"
+
+      # If any check fails, set status to 1, otherwise set to 0
+      status=$(( alias_status + mail_alias_status ))
+      if [ $status -gt 0 ]; then
+        status=1
+      else
+        status=0
+      fi
+
+      # Output JSON
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: ok,ok
+    harm:
+      检查点1:检查/etc/aliases是否禁用不必要的别名,该核查的判断值（是否通过）：ok;检查点2:检查/etc/mail/aliases是否禁用不必要的别名,该核查的判断值（是否通过）：ok;
+    solution: |
+      参考配置操作
+      
+      编辑别名文件vi /etc/aliases，删除或注释掉下面的行
+      
+      #games: root  
+      
+      #ingres: root   
+      
+      #system: root  
+      
+      #toor: root    
+      
+      #uucp: root    
+      
+      #manager: root 
+      
+      #dumper: root    
+      
+      #operator: root   
+      
+      #decode: root    
+      
+      #root: marc
+      
+      补充操作说明
+      
+      更新后运行/usr/bin/newaliases，使改变生效
+      
+      
+      1.编辑别名文件vi /etc/mail/aliases，删除或注释掉下面的行
+      
+      #games: root  
+      
+      #ingres: root   
+      
+      #system: root  
+      
+      #toor: root    
+      
+      #uucp: root    
+      
+      #manager: root 
+      
+      #dumper: root    
+      
+      #operator: root   
+      
+      #decode: root    
+      
+      #root: marc
+      
+      2.修改后运行命令：/usr/bin/newaliases，使改变生效
+
+  - uid: CHK0032
+    description: 检查是否关闭数据包转发功能（适用于不做路由功能的系统）
+    riskLevel: 1
+    query: |-
+      #!/bin/sh
+
+      # Check if the ip_forward file exists
+      if [ ! -f /proc/sys/net/ipv4/ip_forward ]; then
+        echo "{\"outputs\":\"无法找到 /proc/sys/net/ipv4/ip_forward 文件，无法检查数据包转发功能是否关闭\",\"status\":1}"
+        exit 1
+      fi
+
+      # Read the value of ip_forward
+      ip_forward_status=$(cat /proc/sys/net/ipv4/ip_forward)
+
+      # Check the value of ip_forward
+      if [ "$ip_forward_status" -eq 0 ]; then
+        echo "{\"outputs\":\"数据包转发功能已关闭，核查值为：$ip_forward_status，标准值为：0\",\"status\":0}"
+      else
+        echo "{\"outputs\":\"数据包转发功能未关闭，核查值为：$ip_forward_status，标准值为：0\",\"status\":1}"
+      fi
+    expectedOutput: '0'
+    harm: 检查点1:对于不做路由功能的系统，检查是否关闭数据包转发功能,该核查的判断值（是否通过）：0;
+    solution: |
+      Redhat 默认已经关闭了数据包转发功能。
+      
+      可通过以下命令来查看数据包转发功能是否关闭：
+      
+      # cat /proc/sys/net/ipv4/ip_forward
+      
+      如果返回值为0，说明数据包转发功能已经关闭，为1则开启。
+      
+      关闭数据包转发功能：
+      
+      命令： #sysctl -w net.ipv4.ip_forward=0
+
+  - uid: CHK0033
+    description: 检查是否关闭IP伪装和绑定多IP功能
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      # 初始化输出和状态
+      output=""
+      status=0
+
+      # 检查是否存在/etc/host.conf文件
+      if [ ! -f /etc/host.conf ]; then
+        output="核查失败：系统中不存在/etc/host.conf文件。"
+        status=1
+      else
+        # 检查是否配置关闭多IP绑定
+        multi_off=$(grep -i "^multi\s*off" /etc/host.conf | wc -l)
+        if [ $multi_off -eq 0 ]; then
+          output+="检查设备多IP绑定配置，当前设备多IP绑定未关闭，核查值为：on，标准值为：off; "
+          status=1
+        fi
+
+        # 检查是否配置关闭IP伪装
+        nospoof_on=$(grep -i "^nospoof\s*on" /etc/host.conf | wc -l)
+        if [ $nospoof_on -eq 0 ]; then
+          output+="检查设备IP伪装配置，当前设备IP伪装未关闭，核查值为：off，标准值为：on; "
+          status=1
+        fi
+      fi
+
+      # 输出json
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: off,on
+    harm: 检查点1:检查是否配置关闭多IP绑定,该核查的判断值（是否通过）：off;检查点1:检查是否配置关闭IP伪装,该核查的判断值（是否通过）：on;
+    solution: |
+      编辑/etc/host.conf文件：
+      
+      multi off    #关闭多IP绑定
+      
+      补充操作说明
+      
+      Redhat 默认没有/etc/host.conf文件，要先新建一个host.conf文件
+      
+      
+      编辑/etc/host.conf文件：
+      
+      nospoof on  #关闭IP伪装
+      
+      补充操作说明
+      
+      Redhat 默认没有/etc/host.conf文件，要先新建一个host.conf文件
+  - uid: CHK0034
+    description: 检查是否安装OS补丁
+    riskLevel: 1
+    query: |-
+      #!/bin/bash
+
+      output=""
+      status=0
+
+      # 检查是否安装补丁
+      if command -v rpm >/dev/null 2>&1; then
+          # 适用于Red Hat、CentOS、Fedora等
+          patches=$(rpm -qa --last)
+          if [ -z "$patches" ]; then
+              output+="检查OS补丁安装情况，没有找到安装的补丁，核查值为：no，标准值为：yes; "
+              status=1
+          else
+              output+="检查OS补丁安装情况，已经安装了补丁，核查值为：yes，标准值为：yes; "
+          fi
+      elif command -v dpkg >/dev/null 2>&1; then
+          # 适用于Debian、Ubuntu等
+          patches=$(dpkg --get-selections)
+          if [ -z "$patches" ]; then
+              output+="检查OS补丁安装情况，没有找到安装的补丁，核查值为：no，标准值为：yes; "
+              status=1
+          else
+              output+="检查OS补丁安装情况，已经安装了补丁，核查值为：yes，标准值为：yes; "
+          fi
+      else
+          output+="核查失败：未检测到rpm或dpkg命令。"
+          status=1
+      fi
+
+      # 输出json
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+    expectedOutput: yes
+    harm: 检查点1:检查是否安装OS补丁,该核查的判断值（是否通过）：yes;
+    solution: |-
+      可以使用OnlineUpdate或Patch CD Update等方式升级系统补丁
+  - uid: CHK0035
+    description: 检查是否使用NTP（网络时间协议）保持时间同步
+    riskLevel: 1
+    query: |-
+      #!/bin/sh
+
+      # Initialize outputs and status
+      outputs=""
+      status=0
+
+      # Check if the ntp configuration file exists
+      if [ ! -f /etc/ntp.conf ]; then
+        outputs+="无法找到 /etc/ntp.conf 文件，无法检查是否配置NTP服务器地址"
+        status=1
+      else
+        # Check if there is any server configuration in the ntp.conf file
+        server_config=$(grep "^server" /etc/ntp.conf)
+        if [ -z "$server_config" ]; then
+          outputs+="未配置NTP服务器地址，"
+          status=1
+        else
+          outputs+="已配置NTP服务器地址，"
+        fi
+      fi
+
+      # Check if the ntpd service is running
+      if systemctl is-active --quiet ntpd; then
+        outputs+="ntp服务已开启，"
+      else
+        outputs+="ntp服务未开启，"
+        status=1
+      fi
+
+      # Output JSON
+      outputs=${outputs%?}  # remove the last comma
+      echo "{\"outputs\":\"$outputs\",\"status\":$status}"
+    expectedOutput: /.+/,start
+    harm: 检查点1:检查是否配置NTP服务器地址,该核查的判断值（是否通过）：/.+/;检查点1:检查ntp服务是否开启,该核查的判断值（是否通过）：start;
+    solution: |-
+      编辑ntp 的配置文件：
+      
+      #vi /etc/ntp.conf,
+      
+      配置：server IP地址（提供ntp服务的机器）
+      
+      如：server 192.168.1.1
+      
+      开启ntp服务：
+      
+      redhat为：/etc/init.d/ntpd start 或者 service ntpd start
+      
+      suse9为：/etc/init.d/xntpd start
+      
+      suse10,11为：/etc/init.d/ntp start
+      如果ntp服务未开启，开启ntp服务：
+      
+      redhat为：/etc/init.d/ntpd start 或者 service ntpd start
+      
+      suse9为：/etc/init.d/xntpd start
+      
+      suse10,11为：/etc/init.d/ntp start
+      
+      centos 为：systemctl start ntpd
+  - uid: CHK0036
+    description: 检查是否禁用不必要的系统服务
+    riskLevel: 1
+    query: |-
+      #!/bin/sh
+
+      # Initialize outputs and status
+      output=""
+      status=0
+
+      # List all running services
+      running_services=$(ps aux | awk '{print $11}')
+
+      # List unwanted services
+      unwanted_services="chargen-dgram daytime-stream echo-stream klogin tcpmux-server chargen-stream discard-dgram eklogin krb5-telnet tftp cvs discard-stream ekrb5-telnet kshell time-dgram daytime-dgram echo-dgram gssftp rsync time-stream"
+
+      # Check for unwanted services
+      for service in $unwanted_services; do
+        if echo "$running_services" | grep -qw "$service"; then
+          output+="服务 $service 未禁用; "
+          status=1
+        fi
+      done
+
+      # If no unwanted services were found, append success message
+      if [ -z "$output" ]; then
+        output="检查通过，所有不必要的系统服务都已禁用。"
+      fi
+
+      # Output JSON
+      echo "{\"outputs\":\"$output\",\"status\":$status}"
+
+    expectedOutput: /.+/
+    harm: 检查点1:列出所需要服务的列表包括所需的系统服务，不在此列表的服务需关闭。,该核查的判断值（是否通过）：/.+/;
+    solution: |-
+      查看所有开启的服务：
+      
+      #ps aux 
+      
+      禁用xinetd.d 目录中不用的服务：
+      
+      #vi /etc/xinetd.d/servicename 
+      
+      将服务文件里面的disable设置为disable=yes重启xinetd服务,即可。
+      
+      要直接关闭某个服务，如sshd可用如下命令:
+      
+      # /etc/init.d/sshd stop #关闭正在运行的sshd服务
+      
+      补充操作说明
+      
+      关闭下列不必要的基本网络服务。
+      
+      chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream

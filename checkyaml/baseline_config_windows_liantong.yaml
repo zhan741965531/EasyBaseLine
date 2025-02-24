@@ -1,0 +1,1815 @@
+baseline_check_items:
+  - uid: CHK001
+    description: 防火墙TCP/IP筛选配置
+    riskLevel: high
+    query: |
+      function Check-FirewallTcpIpFiltering {
+          # 获取开启的防火墙规则
+          $firewallRules = netsh advfirewall firewall show rule name=all | findstr "LocalPort"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($firewallRules) {
+              $result["status"]  = 2 # 人工检查
+              $result["outputs"] = "核查内容: 已开启的端口如下:`n$firewallRules"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未找到已开启的端口"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-FirewallTcpIpFiltering
+    expectedOutput: "LocalPort"
+    harm: 不合理的防火墙TCP/IP筛选配置可能导致未经授权的访问，从而增加系统遭受攻击的风险。
+    solution: 调整防火墙TCP/IP筛选配置，仅允许必要的端口开启，以提高系统安全性。
+  - uid: CHK002
+    description: 是否启用Windows系统自带的自带防火墙
+    riskLevel: high
+    query: |
+      function Check-WindowsFirewallStatus {
+          # 获取防火墙配置状态
+          $firewallStatus = ""
+          if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile") {
+              $firewallStatus = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile").EnableFirewall
+          } elseif (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile") {
+              $firewallStatus = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile").EnableFirewall
+          } else {
+              $firewallStatus = "OFF"
+          }
+
+          # 检查防火墙操作模式和例外模式是否启用
+          $firewallEnabled = ($firewallStatus -ne "0")
+
+          # 获取防火墙服务状态
+          $firewallServiceStatus = (Get-Service MpsSvc).Status
+
+          # 检查防火墙服务是否启用
+          $serviceEnabled = ($firewallServiceStatus -ne "Stopped") -and ($firewallServiceStatus -ne "The RPC server is unavailable")
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($firewallEnabled -and $serviceEnabled) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: Windows防火墙已启用，操作模式为 $($firewallStatus)"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: Windows防火墙未启用，操作模式为 $($firewallStatus)"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-WindowsFirewallStatus
+    expectedOutput: "EnableFirewall.*1"
+    harm: 不启用防火墙可能导致未经授权的访问，从而增加系统遭受攻击的风险。
+    solution: 通过命令行或控制面板启用Windows防火墙，以防止未经授权的访问。
+  - uid: CHK003
+    description: 是否启用SYN攻击保护
+    riskLevel: high
+    query: |
+      function Check-SynAttackProtection {
+          # 查询注册表项
+          $registryValues = Get-ItemPropertyValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "SynAttackProtect", "TcpMaxPortsExhausted", "TcpMaxHalfOpen", "TcpMaxHalfOpenRetried"
+
+          # 检查注册表项是否满足条件
+          $synAttackProtectEnabled = $registryValues -match "0x[12]"
+          $tcpMaxPortsExhausted = $registryValues -match "0x5"
+          $tcpMaxHalfOpen = $registryValues -match "0x1f4"
+          $tcpMaxHalfOpenRetried = $registryValues -match "0x190"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($synAttackProtectEnabled -and $tcpMaxPortsExhausted -and $tcpMaxHalfOpen -and $tcpMaxHalfOpenRetried) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: SYN攻击保护已启用。查询结果：$registryValues"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: SYN攻击保护未启用。查询结果：$registryValues"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-SynAttackProtection
+    expectedOutput: "0x[12]"
+    harm: 未启用SYN攻击保护可能使系统容易受到SYN洪水攻击，从而导致服务中断。
+    solution: 通过修改注册表项，启用SYN攻击保护，以防止SYN洪水攻击。
+  - uid: CHK004
+    description: 是否开启屏幕保护
+    riskLevel: low
+    query: |
+      function Check-ScreenSaver {
+          # 查询注册表项
+          $screenSaverActive = Get-ItemPropertyValue -Path 'HKCU:\Control Panel\Desktop' -Name ScreenSaverActive
+          $screenSaverSecure = Get-ItemPropertyValue -Path 'HKCU:\Control Panel\Desktop' -Name ScreenSaverSecure
+          $screenSaverTimeout = Get-ItemPropertyValue -Path 'HKCU:\Control Panel\Desktop' -Name ScreenSaverTimeout
+          if ($screenSaverTimeout -gt 300) {
+              $screenSaverTimeout = ($screenSaverTimeout / 60) -as [int]
+          }
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($screenSaverActive -eq 1 -and $screenSaverSecure -eq 1 -and $screenSaverTimeout -le 5) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 屏幕保护已启用，超时时间为 ${screenSaverTimeout} 分钟"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 屏幕保护未启用或超时时间不符合要求"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-ScreenSaver
+    expectedOutput: "ScreenSaverActive.*1"
+    harm: 不启用屏幕保护可能导致未经授权的人员在您离开工作站时查看或操作您的电脑。
+    solution: 在控制面板中启用并配置屏幕保护程序，以提高工作站安全性。
+  - uid: CHK005
+    description: 查看注册表信息
+    riskLevel: medium
+    query: |
+      function Check-RegistrySettings {
+          $winVersion = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ReleaseId
+
+          # 查询注册表项
+          if ($winVersion -eq '1507' -or $winVersion -eq '1511' -or $winVersion -eq '1607') {
+              # Windows Server 2012 / 2012 R2
+              $registryValues = reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "AutoAdminLogon" /v "DisableIPSourceRouting" /v "restrictanonymous" /v "EnablePMTUDiscovery" /v "TcpMaxPortsExhausted" /v "TcpMaxHalfOpen" /v "TcpMaxHalfOpenRetried" /reg:32
+          } else {
+              # Windows Server 2016 / 2019
+              $registryValues = reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v "AutoAdminLogon" /v "DisableIPSourceRouting" /v "restrictanonymous" /v "EnablePMTUDiscovery" /v "TcpMaxPortsExhausted" /v "TcpMaxHalfOpen" /v "TcpMaxHalfOpenRetried"
+          }
+
+          # 检查注册表项是否满足条件
+          $autoAdminLogon = $registryValues -match "AutoAdminLogon.*0x0"
+          $disableIPSourceRouting = $registryValues -match "DisableIPSourceRouting.*0x2"
+          $restrictAnonymous = $registryValues -match "restrictanonymous.*0x1"
+          $enablePMTUDiscovery = $registryValues -match "EnablePMTUDiscovery.*0x1"
+          $tcpMaxPortsExhausted = $registryValues -match "TcpMaxPortsExhausted.*0x5"
+          $tcpMaxHalfOpen = $registryValues -match "TcpMaxHalfOpen.*0x1f4"
+          $tcpMaxHalfOpenRetried = $registryValues -match "TcpMaxHalfOpenRetried.*0x190"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($autoAdminLogon -and $disableIPSourceRouting -and $restrictAnonymous -and $enablePMTUDiscovery -and $tcpMaxPortsExhausted -and $tcpMaxHalfOpen -and $tcpMaxHalfOpenRetried) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 注册表设置符合要求:$registryValues"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 注册表设置不符合要求:$registryValues"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-RegistrySettings
+    expectedOutput: "AutoAdminLogon.*0x0"
+    harm: 注册表设置不正确可能导致系统安全性降低，使系统容易受到攻击。
+    solution: 修改注册表项以满足安全要求，提高系统安全性。
+  - uid: CHK006
+    description: 是否关闭windows自动播放功能
+    riskLevel: low
+    query: |
+      function Check-AutoPlayDisabled {
+          # 查询注册表项
+          $registryValue = reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v "NoDriveTypeAutoRun"
+
+          # 检查是否关闭了自动播放功能
+          $disabled = $registryValue -match "NoDriveTypeAutoRun.*0xff"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($disabled) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 已关闭Windows自动播放功能"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未关闭Windows自动播放功能"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AutoPlayDisabled
+    expectedOutput: "NoDriveTypeAutoRun.*0xff"
+    harm: 未关闭自动播放功能可能导致恶意软件通过移动存储设备自动运行，从而增加系统遭受攻击的风险。
+    solution: 修改注册表项以关闭Windows自动播放功能，提高系统安全性。
+  - uid: CHK007
+    description: 匿名远程连接
+    riskLevel: high
+    query: |
+      function Check-AnonymousRemoteConnection {
+          # 查询注册表项
+          $shares = reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Shares"
+          $namedPipes = reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "NullSessionPipes"
+
+          # 检查是否禁止了匿名远程连接
+          $sharesDisabled = -not ($shares -match "Everyone")
+          $namedPipesDisabled = $namedPipes -match "NullSessionPipes.*\(Default\)"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($sharesDisabled -and $namedPipesDisabled) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 已禁止匿名远程连接。Shares配置：$shares，NullSessionPipes配置：$namedPipes"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未禁止匿名远程连接。Shares配置：$shares，NullSessionPipes配置：$namedPipes"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AnonymousRemoteConnection
+    expectedOutput: ""
+    harm: 允许匿名远程连接可能导致未经授权的访问，从而增加系统遭受攻击的风险。
+    solution: 修改注册表项以禁止匿名远程连接，提高系统安全性。
+  - uid: CHK008
+    description: 是否禁用可远程访问的注册表路径和子路径
+    riskLevel: high
+    query: |
+      function Check-RemoteRegistryAccess {
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+          if (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\winreg" -Name "AllowedExactPaths" -ErrorAction SilentlyContinue) {
+              # 获取AllowedExactPaths注册表项
+              $allowedExactPaths = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\winreg" -Name "AllowedExactPaths" | Select-Object -ExpandProperty "Machine"
+              if ($allowedExactPaths -match "\(Default\)") {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 未禁用可远程访问的注册表路径和子路径"
+              }
+          }
+          if (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\winreg" -Name "AllowedPaths" -ErrorAction SilentlyContinue) {
+              # 获取AllowedPaths注册表项
+              $allowedPaths = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\winreg" -Name "AllowedPaths" | Select-Object -ExpandProperty "Machine"
+              if ($allowedPaths -match "\(Default\)") {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 未禁用可远程访问的注册表路径和子路径:$allowedPaths"
+              }
+          }
+          if ($result["status"] -eq $null) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 已禁用可远程访问的注册表路径和子路径"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-RemoteRegistryAccess
+    expectedOutput: ""
+    harm: 未禁用可远程访问的注册表路径和子路径可能导致未经授权的访问，从而增加系统遭受攻击的风险。
+    solution: 修改注册表项以禁用可远程访问的注册表路径和子路径，提高系统安全性。
+  - uid: CHK009
+    description: 查看密码要求
+    riskLevel: medium
+    query: |
+      function Check-PasswordRequirements {
+          # 查询注册表项
+          $minLength = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "MinimumPasswordLength" -ErrorAction SilentlyContinue).MinimumPasswordLength
+          $complexity = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "PasswordComplexity" -ErrorAction SilentlyContinue).PasswordComplexity
+
+          # 检查密码要求
+          $minLengthValid = $minLength -ge 8
+          $complexityValid = $complexity -eq 1
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($minLengthValid -and $complexityValid) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 密码要求符合预期，最小密码长度为 $minLength，密码复杂性为 $complexity"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 密码要求不符合预期，最小密码长度为 $minLength，密码复杂性为 $complexity"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-PasswordRequirements
+    expectedOutput: ""
+    harm: 密码要求过低可能导致密码被破解，从而增加系统遭受攻击的风险。
+    solution: 修改注册表项以增强密码要求，提高系统安全性。
+  - uid: CHK010
+    description: 查看密码最长保留期
+    riskLevel: medium
+    query: |
+      # 定义函数检查密码最长保留期
+      function Check-MaximumPasswordAge {
+          # 查询注册表项
+          $maxAge = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "MaximumPasswordAge" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty MaximumPasswordAge
+
+          # 检查密码最长保留期
+          $maxAgeValid = $maxAge -le 90
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($maxAgeValid) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 密码最长保留期符合预期，最长保留期为${maxAge}天"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 密码最长保留期不符合预期，最长保留期为${maxAge}天"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-MaximumPasswordAge
+
+    expectedOutput: ""
+    harm: 密码保留期过长可能导致密码被破解，从而增加系统遭受攻击的风险。
+    solution: 修改注册表项以减少密码最长保留期，提高系统安全性。
+  - uid: CHK011
+    description: 查看强制密码历史大小
+    riskLevel: medium
+    query: |
+      function Check-PasswordHistorySize {
+          # 检查操作系统版本
+          $osVersion = (Get-CimInstance Win32_OperatingSystem).Version
+          if ([version]$osVersion -lt [version]'6.3') {
+              return '此脚本不支持您的操作系统版本。'
+          }
+
+          # 查询注册表项
+          $historySize = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "PasswordHistorySize").PasswordHistorySize
+
+          # 检查强制密码历史
+          $historySizeValid = $historySize -ge 5
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($historySizeValid) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 强制密码历史大小为 $historySize，符合预期"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 强制密码历史大小为 $historySize，不符合预期"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-PasswordHistorySize
+    expectedOutput: ""
+    harm: 强制密码历史大小过小可能导致密码被重复使用，从而增加系统遭受攻击的风险。
+    solution: 修改注册表项以增加强制密码历史大小，提高系统安全性。
+  - uid: CHK012
+    description: 查看账户锁定阈值
+    riskLevel: medium
+    query: |
+      function Check-LockoutBadCount {
+          # 查询注册表项
+          $lockoutBadCount = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "LockoutBadCount" -ErrorAction SilentlyContinue
+
+          # 检查账户锁定阈值
+          if ($lockoutBadCount) {
+              $lockoutThresholdValid = $lockoutBadCount.LockoutBadCount -le 6 -and $lockoutBadCount.LockoutBadCount -gt 0
+          } else {
+              $lockoutThresholdValid = $false
+          }
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($lockoutThresholdValid) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 账户锁定阈值符合预期，锁定阈值为 $($lockoutBadCount.LockoutBadCount)"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 账户锁定阈值不符合预期"
+          }
+
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-LockoutBadCount
+    expectedOutput: ""
+    harm: 设置不合适的账户锁定阈值可能导致用户被恶意锁定，从而影响正常的系统使用。
+    solution: 修改注册表项以设置合适的账户锁定阈值，提高系统安全性。
+  - uid: CHK013
+    description: 是否关闭无效启动项
+    riskLevel: low
+    query: |
+      function Check-InvalidStartupItems {
+          # 获取启动项信息
+          $startupItems = Get-CimInstance -Query "SELECT * FROM Win32_StartupCommand"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($startupItems) {
+              $result["status"]  = 0 # 核查通过
+              $outputs = "核查内容: Windows启动程序信息如下:`n"
+              $outputs += ($startupItems | Format-Table -AutoSize | Out-String).Trim()
+              $result["outputs"] = $outputs
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未找到任何启动项"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-InvalidStartupItems
+    expectedOutput: ""
+    harm: 未关闭无效启动项可能导致恶意软件在系统启动时自动运行，从而影响系统性能和安全。
+    solution: 手动检查Windows启动程序信息，关闭无效启动项，以提高系统安全性。
+  - uid: CHK014
+    description: 在本地安全设置中只允许授权帐号本地、远程访问登录此计算机
+    riskLevel: high
+    query: |
+      function Check-NetworkLogonRight {
+          # 获取策略设置
+          if (Get-Command -Name "secedit" -ErrorAction SilentlyContinue) {
+              # 兼容 Windows Server 2016 及以下版本
+              secedit /export /cfg "$env:TEMP\securitySettings.inf" /quiet
+              $content = Get-Content "$env:TEMP\securitySettings.inf"
+          } else {
+              # 兼容 Windows Server 2019 及以上版本
+              $content = secedit /export /areas SECURITYPOLICY /cfg NUL | Select-String "SeNetworkLogonRight.*\*S-1-5-32-544"
+          }
+
+          # 检查SeNetworkLogonRight设置是否等于*S-1-5-32-544
+          $authorized = $content -match "SeNetworkLogonRight.*\*S-1-5-32-544"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($authorized) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 授权帐号已设置为仅允许本地、远程访问登录此计算机"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 授权帐号设置不正确"
+          }
+
+          # 移除临时文件
+          if (Test-Path "$env:TEMP\securitySettings.inf") {
+              Remove-Item "$env:TEMP\securitySettings.inf"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-NetworkLogonRight
+    expectedOutput: ""
+    harm: 未正确配置授权帐号本地、远程访问登录权限可能导致未经授权的访问，从而增加系统遭受攻击的风险。
+    solution: 通过本地安全策略或组策略编辑器，将SeNetworkLogonRight设置为*S-1-5-32-544，以提高系统安全性。
+  - uid: CHK015
+    description: 关键权限指派安全，要求允许本地登录
+    riskLevel: high
+    query: |
+      function Check-InteractiveLogonRight {
+          # 获取策略设置
+          $securitySettings = secedit /export /cfg "$env:TEMP\securitySettings.inf" /quiet
+          $content = Get-Content "$env:TEMP\securitySettings.inf"
+
+          # 检查SeInteractiveLogonRight设置是否等于*S-1-5-32-544
+          $authorized = $content -match "SeInteractiveLogonRight.*\*S-1-5-32-544"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($authorized) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 已允许本地登录的权限指派"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未正确配置本地登录权限指派"
+          }
+
+          # 移除临时文件
+          Remove-Item "$env:TEMP\securitySettings.inf" -ErrorAction SilentlyContinue
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-InteractiveLogonRight
+    expectedOutput: "SeInteractiveLogonRight.*\\*S-1-5-32-544"
+    harm: 未正确配置允许本地登录的权限指派可能导致未经授权的访问，从而增加系统遭受攻击的风险。
+    solution: 通过本地安全策略或组策略编辑器，将SeInteractiveLogonRight设置为*S-1-5-32-544，以提高系统安全性。
+  - uid: CHK016
+    description: 远端系统强制关机是否只指派给Administrators组
+    riskLevel: medium
+    query: |
+      function Check-RemoteShutdownPrivilege {
+          # 检查操作系统版本
+          if ([Environment]::OSVersion.Version -lt (New-Object Version "6.3")) {
+              $result = @{
+                  "status"  = 2;
+                  "outputs" = "核查内容: 该核查项仅支持Windows Server 2012及以上操作系统"
+              }
+          }
+          else {
+              # 获取SeRemoteShutdownPrivilege权限的指派对象
+              $privilege = (Get-LocalGroup -Name "Administrators").SID
+
+              # 获取策略设置
+              $securitySettings = secedit /export /cfg "$env:TEMP\securitySettings.inf" /quiet
+              $content = Get-Content "$env:TEMP\securitySettings.inf"
+
+              # 检查SeRemoteShutdownPrivilege设置是否等于Administrators组的SID
+              $authorized = $content -match "SeRemoteShutdownPrivilege.*\*$($privilege.Value)"
+
+              # 构建结果对象
+              $result = @{
+                  "status"  = $null;
+                  "outputs" = $null;
+              }
+
+              if ($authorized) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 远端系统强制关机已指派给Administrators组"
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 远端系统强制关机未正确指派给Administrators组"
+              }
+
+              # 移除临时文件
+              Remove-Item "$env:TEMP\securitySettings.inf"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-RemoteShutdownPrivilege
+    expectedOutput: "SeRemoteShutdownPrivilege.*\\*S-1-5-32-544"
+    harm: 未正确配置远端系统强制关机权限可能导致未经授权的访问和恶意操作。
+    solution: 通过本地安全策略或组策略编辑器，将SeRemoteShutdownPrivilege设置为Administrators组的SID，以提高系统安全性。
+  - uid: CHK017
+    description: 取得文件或其他对象的所有权是否仅指派给Administrators组
+    riskLevel: medium
+    query: |
+      function Check-TakeOwnershipPrivilege {
+          # 获取策略设置
+          $securitySettings = secedit /export /cfg "$env:TEMP\securitySettings.inf" /quiet
+          $content = Get-Content "$env:TEMP\securitySettings.inf"
+
+          # 检查SeTakeOwnershipPrivilege设置是否等于*S-1-5-32-544
+          $authorized = $content -match "SeTakeOwnershipPrivilege.*\*S-1-5-32-544"
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($authorized) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 取得文件或其他对象的所有权已指派给Administrators组"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 取得文件或其他对象的所有权未正确指派给Administrators组"
+          }
+
+          # 移除临时文件
+          Remove-Item "$env:TEMP\securitySettings.inf"
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-TakeOwnershipPrivilege
+    expectedOutput: "SeTakeOwnershipPrivilege.*\\*S-1-5-32-544"
+    harm: 未正确配置取得文件或其他对象的所有权权限可能导致未经授权的访问和恶意操作。
+    solution: 通过本地安全策略或组策略编辑器，将SeTakeOwnershipPrivilege设置为*S-1-5-32-544，以提高系统安全性。
+  - uid: CHK018
+    description: 是否关闭系统默认的共享文件夹
+    riskLevel: medium
+    query: |
+      function Check-AutoShare {
+          try {
+              # 获取操作系统版本
+              $osVersion = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+
+              # 查询注册表项
+              $registryValueServer = reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "AutoShareServer"
+              $registryValueWKS = reg query "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v "AutoShareWKS"
+
+              # 检查AutoShareServer和AutoShareWKS设置是否为0x0
+              $disabledServer = $registryValueServer -match "AutoShareServer.*0x0"
+              $disabledWKS = $registryValueWKS -match "AutoShareWKS.*0x0"
+
+              # 构建结果对象
+              $result = @{
+                  "status"  = $null;
+                  "outputs" = $null;
+              }
+
+              if ($disabledServer -and $disabledWKS) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 系统默认的共享文件夹已关闭，操作系统版本: $osVersion"
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 系统默认的共享文件夹未关闭，操作系统版本: $osVersion"
+              }
+          } catch {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 查询注册表项时发生错误，错误信息为: $_，操作系统版本: $osVersion"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AutoShare
+    expectedOutput: "AutoShareServer.*0x0.*AutoShareWKS.*0x0"
+    harm: 未关闭系统默认的共享文件夹可能导致未经授权的访问和恶意操作。
+    solution: 通过修改注册表项，将AutoShareServer和AutoShareWKS设置为0x0，以提高系统安全性。
+  - uid: CHK019
+    description: 查看共享文件夹的访问权限
+    riskLevel: medium
+    query: |
+      function Check-SharePermissions {
+          try {
+              # 获取操作系统版本
+              $osVersion = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+
+              # 获取共享文件夹列表
+              $shares = Get-WmiObject -Class Win32_Share
+
+              # 构建结果对象
+              $result = @{
+                  "status"  = 0;
+                  "outputs" = "核查内容: 所有共享文件夹均无Everyone访问权限, 操作系统版本: $osVersion";
+              }
+
+              # 检查每个共享文件夹的访问权限
+              foreach ($share in $shares) {
+                  $shareSec = Get-WmiObject -Class Win32_LogicalShareSecuritySetting -Filter "Name='$($share.Name)'"
+                  $sd = $shareSec.GetSecurityDescriptor().Descriptor
+                  $everyoneAccess = $sd.DACL | Where-Object { $_.Trustee.Name -eq "Everyone" }
+
+                  if ($everyoneAccess) {
+                      $result["status"] = 1 # 核查失败
+                      $result["outputs"] = "核查内容: 存在Everyone访问权限的共享文件夹：$($share.Name), 操作系统版本: $osVersion"
+                      break
+                  }
+              }
+          } catch {
+              $result["status"] = 1 # 核查失败
+              $result["outputs"] = "核查内容: 查询过程中出现错误，错误信息：$_, 操作系统版本: $osVersion"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-SharePermissions
+    expectedOutput: "不存在 Everyone"
+    harm: 允许Everyone访问共享文件夹可能导致未经授权的访问和恶意操作。
+    solution: 重新配置共享文件夹的访问权限，以限制Everyone的访问。
+  - uid: CHK020
+    description: 查看文件系统格式
+    riskLevel: low
+    query: |
+      function Check-FileSystem {
+          try {
+              # 获取操作系统版本
+              $osVersion = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+
+              # 获取所有逻辑磁盘
+              $logicalDisks = Get-WmiObject -Class Win32_LogicalDisk
+
+              # 构建结果对象
+              $result = @{
+                  "outputs" = "核查内容: 所有逻辑磁盘均为NTFS格式, 操作系统版本: $osVersion";
+                  "status"  = 0;
+              }
+
+              # 检查每个逻辑磁盘的文件系统格式
+              foreach ($disk in $logicalDisks) {
+                  if ($disk.FileSystem -ne "NTFS") {
+                      $result["status"] = 1 # 核查失败
+                      $result["outputs"] = "核查内容: 使用非NTFS格式的逻辑磁盘：$($disk.DeviceID), 操作系统版本: $osVersion"
+                      break
+                  }
+              }
+          } catch {
+              $result["status"] = 1 # 核查失败
+              $result["outputs"] = "核查内容: 查询过程中出现错误，错误信息：$_, 操作系统版本: $osVersion"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json -Compress
+      }
+
+      # 调用核查函数
+      Check-FileSystem
+    expectedOutput: "使用的文件系统为NTFS格式"
+    harm: 使用非NTFS文件系统可能导致数据丢失、文件权限和安全功能缺失。
+    solution: 将非NTFS文件系统的逻辑磁盘转换为NTFS格式，以提高数据安全性。
+  - uid: CHK021
+    description: 审核帐户登录事件
+    riskLevel: medium
+    query: |
+      function Check-AuditLogonEvents {
+          try {
+              # 获取操作系统版本
+              $osVersion = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+
+              # 查询注册表项
+              $registryValue = reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "AuditLogonEvents"
+
+              # 检查是否启用了帐户登录事件审计
+              $enabled = $registryValue -match "AuditLogonEvents.*0x3"
+
+              # 构建结果对象
+              $result = @{
+                  "status"  = $null;
+                  "outputs" = $null;
+              }
+
+              if ($enabled) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 启用了帐户登录事件审计, 操作系统版本: $osVersion"
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 未启用帐户登录事件审计, 操作系统版本: $osVersion"
+              }
+          } catch {
+              $result["status"] = 1 # 核查失败
+              $result["outputs"] = "核查内容: 查询过程中出现错误，错误信息：$_, 操作系统版本: $osVersion"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json 
+      }
+
+      # 调用核查函数
+      Check-AuditLogonEvents
+    expectedOutput: "AuditLogonEvents.*0x3"
+    harm: 未启用帐户登录事件审计可能导致无法检测到潜在的安全威胁和未经授权的访问。
+    solution: 修改注册表项以启用帐户登录事件审计，以便更好地跟踪和监控登录活动。
+  - uid: CHK022
+    description: 启用审核帐户管理
+    riskLevel: medium
+    query: |
+      function Check-AuditAccountManage {
+          try {
+              # 查询注册表项
+              $registryValue = reg query "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "AuditAccountManage"
+
+              # 检查是否启用了审核帐户管理
+              $enabled = $registryValue -match "AuditAccountManage.*0x3"
+
+              # 构建结果对象
+              $result = @{
+                  "status"  = $null;
+                  "outputs" = $null;
+              }
+
+              if ($enabled) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 启用了审核帐户管理"
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 未启用审核帐户管理"
+              }
+          } catch {
+              $result["status"] = 1 # 核查失败
+              $result["outputs"] = "核查内容: 查询过程中出现错误，错误信息：$_"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json -Compress
+      }
+
+      # 调用核查函数
+      Check-AuditAccountManage
+    expectedOutput: "AuditAccountManage.*0x3"
+    harm: 未启用审核帐户管理可能导致无法检测到潜在的安全威胁和未经授权的帐户更改。
+    solution: 修改注册表项以启用审核帐户管理，以便更好地跟踪和监控帐户管理活动。
+  - uid: CHK023
+    description: 启用审核过程追踪
+    riskLevel: medium
+    query: |
+      function Check-AuditProcessTracking {
+          # 查询注册表项，使用Test-Path来增加兼容性
+          $keyPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\AuditProcessTracking"
+          $registryValueExists = Test-Path $keyPath
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($registryValueExists) {
+              $registryValue = Get-ItemProperty -Path $keyPath
+              # 检查是否启用了审核过程追踪
+              $enabled = $registryValue -match "0x3"
+
+              if ($enabled) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 启用了审核过程追踪, AuditProcessTracking值为 " + $registryValue
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 启用了审核过程追踪，但AuditProcessTracking值不为 0x3，当前值为 " + $registryValue
+              }
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未找到AuditProcessTracking注册表项"
+          }
+
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AuditProcessTracking
+    expectedOutput: "AuditProcessTracking.*0x3"
+    harm: 未启用审核过程追踪可能导致无法检测潜在的安全威胁和未经授权的系统操作。
+    solution: 修改注册表项以启用审核过程追踪，以便更好地跟踪和监控系统操作。
+  - uid: CHK024
+    description: 启用审核目录服务访问
+    riskLevel: high
+    query: |
+      function Check-AuditDSAccess {
+          # 查询注册表项，使用Test-Path来增加兼容性
+          $keyPath = "HKLM:\System\CurrentControlSet\Control\LSA\AuditDSAccess"
+          $registryValueExists = Test-Path $keyPath
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($registryValueExists) {
+              $auditDSAccess = Get-ItemProperty -Path $keyPath
+
+              # 判断是否符合审核要求
+              if ($auditDSAccess -eq 3) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 目录服务访问审核已启用, AuditDSAccess值为 " + $auditDSAccess
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 目录服务访问审核已启用，但AuditDSAccess值不为 3，当前值为 " + $auditDSAccess
+              }
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未找到AuditDSAccess注册表项"
+          }
+
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AuditDSAccess
+    expectedOutput: "AuditDSAccess.*3"
+    harm: 未启用目录服务访问审核可能会导致敏感数据泄露，从而影响系统的安全性。
+    solution: 在组策略中启用目录服务访问审核，并按照安全最佳实践对审核配置进行优化。
+  - uid: CHK025
+    description: 启用审核策略更改
+    riskLevel: high
+    query: |
+      function Check-AuditPolicyChange {
+          # 查询注册表项，使用Test-Path来增加兼容性
+          $keyPath = "HKLM:\System\CurrentControlSet\Control\Lsa\AuditPolicyChange"
+          $registryValueExists = Test-Path $keyPath
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if ($registryValueExists) {
+              $auditPolicyChange = Get-ItemProperty -Path $keyPath
+
+              # 判断是否符合审核要求
+              if ($auditPolicyChange -eq 3) {
+                  $result["status"]  = 0 # 核查通过
+                  $result["outputs"] = "核查内容: 已启用审核策略更改, AuditPolicyChange值为 " + $auditPolicyChange
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 已启用审核策略更改，但AuditPolicyChange值不为 3，当前值为 " + $auditPolicyChange
+              }
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 未找到AuditPolicyChange注册表项"
+          }
+
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AuditPolicyChange
+    expectedOutput: "AuditPolicyChange.*3"
+    harm: 未启用审核策略更改可能导致无法检测和记录对安全策略的更改，增加系统被攻击的风险。
+    solution: 启用审核策略更改，以增强系统的安全性，并及时检测和记录对安全策略的更改。
+  - uid: CHK026
+    description: 启用审核对象访问
+    riskLevel: high
+    query: |
+      # 查询审核对象访问策略设置
+      $auditPolicy = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa\" -Name "auditbaseobjects"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($auditPolicy.auditbaseobjects -eq 3) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 审核对象访问已启用"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 审核对象访问未启用"
+      }
+
+      # 优化1：输出重要核查内容
+      $result["outputs"] += "`n核查内容: $auditPolicy.auditbaseobjects"
+
+      # 优化2：兼容性支持
+      try {
+          $result | ConvertTo-Json -Depth 10 -ErrorAction Stop
+      } catch {
+          $result["status"] = 1
+          $result["outputs"] = "JSON序列化失败: $_"
+          $result | ConvertTo-Json
+      }
+    expectedOutput: "auditbaseobjects.*3"
+    harm: 未启用审核对象访问可能导致无法检测对系统重要文件和目录的非授权访问和修改。
+    solution: 启用审核对象访问策略，以提高系统安全性。
+  - uid: CHK027
+    description: 审核登录事件
+    riskLevel: high
+    query: |
+      # 查询安全选项中的 "审核登录事件" 配置
+      $auditPolicy = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\SecurityProviders\WDigest" -Name "AuditLogonEvents"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($auditPolicy."AuditLogonEvents" -eq 3) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 审核登录事件已开启"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 审核登录事件未开启"
+      }
+
+      # 优化1：输出重要核查内容
+      $result["outputs"] += "`n核查内容: $($auditPolicy.AuditLogonEvents)"
+
+      # 优化2：兼容性支持
+      try {
+          $result | ConvertTo-Json -Depth 10 -ErrorAction Stop
+      } catch {
+          $result["status"] = 1
+          $result["outputs"] = "JSON序列化失败: $_"
+          $result | ConvertTo-Json
+      }
+    expectedOutput: "AuditLogonEvents.*3"
+    harm: 未开启审核登录事件可能使得无法监控系统登录行为，从而导致信息泄露和安全威胁。
+    solution: 在安全选项中开启 "审核登录事件" 配置，以便监控系统登录行为，提高系统安全性。
+  - uid: CHK028
+    description: 查看日志容量和覆盖规则
+    riskLevel: medium
+    query: |
+      # 查询应用程序日志文件最大大小
+      $applicationLog = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" -Name "MaxSize"
+      $applicationMaxSize = $applicationLog.MaxValue
+
+      # 查询系统日志文件最大大小
+      $systemLog = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\System" -Name "MaxSize"
+      $systemMaxSize = $systemLog.MaxValue
+
+      # 查询安全日志文件最大大小
+      $securityLog = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security" -Name "MaxSize"
+      $securityMaxSize = $securityLog.MaxValue
+
+      # 查询系统日志、安全日志、应用程序日志文件达到最大大小时的动作的序号
+      $logAction = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "ShutdownWarningDialogTimeout"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($applicationMaxSize -ge 8388608 -and $systemMaxSize -ge 8388608 -and $securityMaxSize -ge 8388608 -and $logAction.ShutdownWarningDialogTimeout -eq 0) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 日志容量和覆盖规则符合要求。应用程序日志最大大小为 $applicationMaxSize bytes，系统日志最大大小为 $systemMaxSize bytes，安全日志最大大小为 $securityMaxSize bytes，当日志文件达到最大大小时，系统不会弹出警告提示框。"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 日志容量和覆盖规则不符合要求。应用程序日志最大大小为 $applicationMaxSize bytes，系统日志最大大小为 $systemMaxSize bytes，安全日志最大大小为 $securityMaxSize bytes，当日志文件达到最大大小时，系统会弹出警告提示框。"
+      }
+
+      # 优化：兼容性支持
+      try {
+          $result | ConvertTo-Json -Depth 10 -ErrorAction Stop
+      } catch {
+          $result["status"] = 1
+          $result["outputs"] = "JSON序列化失败: $_"
+          $result | ConvertTo-Json
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+
+    expectedOutput: |
+      核查内容: 日志容量和覆盖规则符合要求。应用程序日志最大大小为 8388608 bytes，系统日志最大大小为 8388608 bytes，安全日志最大大小为 8388608 bytes，当日志文件达到最大大小时，系统不会弹出警告提示框
+    harm: 当日志容量超出最大大小时，可能会导致日志文件中丢失一些关键事件，从而影响安全事件的调查和审计。
+    solution: 修改注册表项，调整应用程序日志、系统日志和安全日志文件的最大大小，并设置系统日志、安全日志、应用程序日志文件达到最大大小时的动作的序号为 0x0，以保证日志容量和覆盖规则符合要求。
+  - uid: CHK029
+    description: 禁止Alerter服务
+    riskLevel: medium
+    query: |
+      function Check-AlerterService {
+          # 查询服务状态
+          $service = Get-Service -Name "Alerter" -ErrorAction SilentlyContinue
+
+          # 构建结果对象
+          $result = @{
+              "status"  = $null;
+              "outputs" = $null;
+          }
+
+          if (!$service) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: Alerter服务未安装或已禁用"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: Alerter服务已安装并正在运行"
+          }
+          $result["outputs"] += $service
+          # 生成JSON输出
+          $result | ConvertTo-Json
+      }
+
+      # 调用核查函数
+      Check-AlerterService
+    expectedOutput: "核查内容: Alerter服务未安装或已禁用"
+    harm: Alerter服务可能会导致系统安全性问题和性能问题。
+    solution: 禁止Alerter服务，以提高系统安全性和性能。
+  - uid: CHK030
+    description: 禁止SimpleMailTrasferProtocol服务
+    riskLevel: high
+    query: |
+      # 检查Simple Mail Transfer Protocol (SMTP)服务是否存在并且已停止
+      $service = Get-Service -Name "SMTPSVC" -ErrorAction SilentlyContinue
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if (!$service) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: SimpleMailTrasferProtocol服务已禁用"
+      } elseif ($service.Status -eq "Stopped") {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: SimpleMailTrasferProtocol服务已停止"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: SimpleMailTrasferProtocol服务正在运行"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+
+    expectedOutput: |
+      核查内容: SimpleMailTrasferProtocol服务已禁用
+      核查内容: SimpleMailTrasferProtocol服务已停止
+    harm: 开启SimpleMailTrasferProtocol服务，可能会导致邮件服务器的攻击，从而导致信息泄露和安全威胁。
+    solution: 禁用或停止SimpleMailTrasferProtocol服务，以便减少系统安全风险。
+  - uid: CHK031
+    description: 禁止SNMP服务
+    riskLevel: high
+    query: |
+      # 查询SNMP服务状态
+      $SNMPService = Get-Service -Name "SNMP" -ErrorAction SilentlyContinue
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if (!$SNMPService) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: SNMP服务未安装或已禁用，查询结果："
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: SNMP服务已禁止，查询结果："
+      }
+      $result["outputs"] += $SNMPService
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "SNMP服务未安装或已禁用"
+    harm: 如果SNMP服务未正确配置，或者SNMP服务开启，则可能导致攻击者获取系统敏感信息。
+    solution: 禁止SNMP服务，以确保系统安全性。
+  - uid: CHK032
+    description: 禁止SNMPTrap服务
+    riskLevel: high
+    query: |
+      $status = (Get-Service -Name SNMPTrap).Status
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($status -eq 'Stopped') {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: SNMPTrap服务已禁止"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: SNMPTrap服务未禁止"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "status.*Stopped"
+    harm: 如果SNMPTrap服务未禁止，攻击者可能会利用该服务来获取系统信息或进行攻击。
+    solution: 禁止SNMPTrap服务，以防止攻击者利用此服务获取系统信息或进行攻击。
+  - uid: CHK033
+    description: 禁用TELNET服务
+    riskLevel: high
+    query: |
+      # 查询系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 查询系统是否存在 tlntsvr.exe
+          $tlntsvr = Get-Process -Name tlntsvr.exe -ErrorAction SilentlyContinue
+
+          if ($tlntsvr -eq $null) {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，TELNET服务已禁用"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，TELNET服务未禁用"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "tlntsvr.exe.*$null"
+    harm: 如果未禁用TELNET服务，可能会导致暴力破解，从而导致信息泄露和安全威胁。
+    solution: 禁用TELNET服务，以防止暴力破解攻击，提高系统的安全性。
+  - uid: CHK034
+    description: 禁止ComputerBrowser服务
+    riskLevel: high
+    query: |
+      # 查询系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 查询 ComputerBrowser服务
+          $service = Get-Service -Name "ComputerBrowser"
+
+          if ($service -eq $null -or $service.Status -eq 'Stopped') {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，ComputerBrowser服务已禁止"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，ComputerBrowser服务未禁止，当前状态为：$($service.Status)"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "ComputerBrowser.*null"
+    harm: 开启ComputerBrowser服务可能引发安全风险，从而导致信息泄露和安全威胁。
+    solution: 禁止ComputerBrowser服务，以便提高系统安全性。
+  - uid: CHK035
+    description: 禁止Messenger服务
+    riskLevel: high
+    query: |
+      # 查询系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 查询服务中是否包含Messenger服务
+          $messengerService = Get-Service | Where-Object {$_.Name -eq "Messenger"}
+
+          if (-not $messengerService -or $messengerService.Status -eq 'Stopped') {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，Messenger服务已禁止"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，Messenger服务未禁止，当前状态为：$($messengerService.Status)"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "Messenger.*not"
+    harm: 禁止Messenger服务可以降低攻击者传播病毒或木马的可能性。
+    solution: 在Windows服务管理器中禁止Messenger服务，以降低攻击者传播病毒或木马的可能性。
+  - uid: CHK036
+    description: 禁止RemoteRegistry服务
+    riskLevel: high
+    query: |
+      # 查询系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 检查RemoteRegistry服务
+          $serviceName = Get-Service RemoteRegistry
+
+          if ($serviceName.Status -eq "Stopped") {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，RemoteRegistry服务已停止"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，RemoteRegistry服务未停止，当前状态为：$($serviceName.Status)"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "RemoteRegistry.*stopped"
+    harm: RemoteRegistry服务未禁用，可能会被恶意程序利用，从而导致计算机受到攻击和信息泄露。
+    solution: 禁止RemoteRegistry服务，以防止计算机受到攻击和信息泄露。
+  - uid: CHK037
+    description: 禁止Print Spooler服务
+    riskLevel: high
+    query: |
+      # 查询系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 查询Print Spooler服务状态
+          $PrintSpoolerService = Get-Service -Name "Spooler"
+
+          if ($PrintSpoolerService.status -eq "Stopped") {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，Print Spooler服务已禁止"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，Print Spooler服务未禁止，当前状态为：$($PrintSpoolerService.Status)"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "Print Spooler服务未禁止"
+    harm: 未禁止Print Spooler服务可能使得受攻击者可以利用Print Spooler服务进行攻击，从而导致信息泄露和安全威胁。
+    solution: 在安全选项中禁止Print Spooler服务，以便防止攻击者利用Print Spooler服务进行攻击，提高系统安全性。
+  - uid: CHK038
+    description: 禁止TerminalService服务
+    riskLevel: high
+    query: |
+      # 查询系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 查询TerminalService服务
+          $TerminalService = Get-Service -Name "TermService" -ErrorAction SilentlyContinue
+
+          if ($TerminalService.Status -eq "Stopped") {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，TerminalService服务已禁止"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，TerminalService服务未禁止，当前状态为：$($TerminalService.Status)"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "TerminalService.*null"
+    harm: 未禁止TerminalService服务可能使得攻击者利用该服务远程控制系统，从而导致信息泄露和安全威胁。
+    solution: 禁止TerminalService服务，以便增强系统安全性。
+  - uid: CHK039
+    description: 禁止WorldWideWebPublishing服务
+    riskLevel: high
+    query: |
+      # 查询操作系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 查询World Wide Web Publishing Service服务信息
+          $service = Get-Service -Name "W3SVC" -ErrorAction SilentlyContinue
+
+          if ($service.Status -eq "Stopped") {
+              $result["status"]  = 0 # 核查通过
+              $result["outputs"] = "核查内容: 操作系统：$os，World Wide Web Publishing Service已停止"
+          } else {
+              $result["status"]  = 1 # 核查失败
+              $result["outputs"] = "核查内容: 操作系统：$os，World Wide Web Publishing Service未停止，当前状态为：$($service.Status)"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "World Wide Web Publishing Service.*Stopped"
+    harm: 未禁止World Wide Web Publishing Service服务可能使得网络攻击者可以访问系统，从而导致信息泄露和安全威胁。
+    solution: 禁止World Wide Web Publishing Service服务，以便提高系统安全性。
+  - uid: CHK040
+    description: 核查 Windows Terminal 服务端口
+    riskLevel: high
+    query: |
+      # 查询操作系统类型
+      $os = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($os -like "*Windows Server*") {
+          # 检查 Terminal 服务是否存在
+          $service = Get-Service -Name "TermService" -ErrorAction SilentlyContinue
+
+          if ($null -ne $service) {
+              # 查询 Windows Terminal 服务端口
+              $portNumber = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "PortNumber" -ErrorAction SilentlyContinue
+
+              if ($null -ne $portNumber) {
+                  if ($portNumber."PortNumber" -ne 0xd3d) {
+                      $result["status"]  = 0 # 核查通过
+                      $result["outputs"] = "核查内容: 操作系统：$os，Windows Terminal 服务端口已设置，当前端口为：$($portNumber.'PortNumber')"
+                  } else {
+                      $result["status"]  = 1 # 核查失败
+                      $result["outputs"] = "核查内容: 操作系统：$os，Windows Terminal 服务端口未设置，当前端口为默认端口3389"
+                  }
+              } else {
+                  $result["status"]  = 1 # 核查失败
+                  $result["outputs"] = "核查内容: 操作系统：$os，无法获取 Windows Terminal 服务端口"
+              }
+          } else {
+              $result["status"]  = 2 # 未知状态
+              $result["outputs"] = "核查内容: 操作系统：$os，Windows Terminal 服务未安装"
+          }
+      } else {
+          $result["status"]  = 2 # 未知状态
+          $result["outputs"] = "核查内容: 操作系统：$os，该检查只适用于Windows Server"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "PortNumber.*0xd3d"
+    harm: 未设置 Windows Terminal 服务端口号，可能会导致系统遭受攻击，从而导致信息泄露和安全威胁。
+    solution: 设置 Windows Terminal 服务端口号，以便防止系统遭受攻击，提高系统安全性。
+  - uid: CHK041
+    description: 检查远程登录不活动连接时间
+    riskLevel: high
+    query: |
+      # 查询远程登录不活动连接时间
+      $autodisconnectValue = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Services\LanmanServer\Parameters" -Name "AutoDisconnect"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($autodisconnectValue."AutoDisconnect" -ge 4 -and $autodisconnectValue."AutoDisconnect" -le 15) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 远程登录不活动连接时间已设置在4-15分钟之间，当前设置为 $($autodisconnectValue.'AutoDisconnect')分钟"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 远程登录不活动连接时间未设置在4-15分钟之间，当前设置为 $($autodisconnectValue.'AutoDisconnect')分钟"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "AutoDisconnect.*4.*15"
+    harm: 未设置远程登录不活动连接时间可能使得无法管理连接，从而导致信息泄露和安全威胁。
+    solution: 在安全选项中设置远程登录不活动连接时间为4-15分钟，以便管理连接，提高系统安全性。
+  - uid: CHK042
+    description: SNMP安全设置
+    riskLevel: high
+    query: |
+      # 查询SNMP安全设置
+      $communities = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Services\SNMP\Parameters\ValidCommunities" -ErrorAction SilentlyContinue
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      # 检查公共社区是否存在
+      $publicExists = $false
+      $communities.PSObject.Properties | ForEach-Object {
+          if ($_.Name -eq "public") {
+              $publicExists = $true
+          }
+      }
+
+      if ($publicExists -eq $false) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: SNMP安全设置合格，不存在公共社区（public）"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: SNMP安全设置不合格，存在公共社区（public）"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "public"
+    harm: SNMP安全未开启可能使得服务器暴露在网络中，从而导致信息泄露和安全威胁。
+    solution: 在服务器上检查SNMP安全设置，确保不存在public的SNMP安全设置，以便提高系统安全性。
+  - uid: CHK043
+    description: Windows自动更新配置
+    riskLevel: high
+    query: |
+      # 查询自动更新配置
+      $autoUpdate = Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" -Name "AUOptions" -ErrorAction SilentlyContinue
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($autoUpdate -ne $null -and $autoUpdate."AUOptions" -eq 4) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 自动更新配置已设置为自动下载并安装"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 自动更新配置未设置为自动下载并安装，当前值为：" + $autoUpdate."AUOptions"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "AUOptions.*4"
+    harm: 未开启自动更新配置，会影响操作系统的安全性，可能会因为系统漏洞而导致机器被攻击。
+    solution: 在安全选项中开启自动更新选项，以保护系统安全性。
+  - uid: CHK044
+    description: 检查最新的补丁集是否安装
+    riskLevel: high
+    query: |
+      #检查本地机器上是否安装最新的补丁集
+      $latestPatches = Get-HotFix -ErrorAction SilentlyContinue
+
+      #构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($latestPatches -ne $null) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 已安装最新的补丁集，最新的补丁编号为：" + $latestPatches.HotfixID[-1]
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 未安装最新的补丁集"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "HotfixID"
+    harm: 未安装最新的补丁集可能导致系统漏洞被利用，从而造成安全威胁。
+    solution: 定期安装最新的补丁集，以提高系统安全性。
+  - uid: CHK045
+    description: 不同用户分配不同的账号
+    riskLevel: high
+    query: |
+      # 查询已启用的用户的个数
+      $users = Get-WmiObject -Class Win32_UserAccount -Filter "Status = 'OK'"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+      
+      $data  = $users.Count
+
+      if ($users.Count -ge 2) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 已启用的用户个数为：" + $data
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 已启用的用户个数少于2，当前启用的用户个数为：" + $data
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "Count.*2"
+    harm: 不同用户共享一个账号可能会造成安全问题，导致信息泄露以及其他安全威胁。
+    solution: 在安全选项中为不同的用户分配不同的账号，以提高系统安全性。
+  - uid: CHK046
+    description: 启用审核系统事件
+    riskLevel: high
+    query: |
+      # 查询安全选项中的 "审核系统事件" 配置
+      $auditPolicy = Get-ItemProperty -Path "HKLM:\\System\\CurrentControlSet\\Control\\Lsa" -Name "AuditSystemEvents" -ErrorAction SilentlyContinue
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+      
+      $data = $auditPolicy."AuditSystemEvents" | out-string
+      if ($auditPolicy."AuditSystemEvents" -eq 3) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 审核系统事件已开启，当前设置值为：" + $data
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 审核系统事件未开启，当前设置值为：" + $data
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "AuditSystemEvents.*3"
+    harm: 未开启审核系统事件可能导致系统安全性降低，从而使得系统信息泄露和受到安全威胁。
+    solution: 在安全选项中开启 "审核系统事件" 配置，以便监控系统登录行为，提高系统安全性。
+  - uid: CHK047
+    description: 启用审核特权使用
+    riskLevel: high
+    query: |
+      # 查询安全选项中的 "审核特权使用" 配置
+      $auditPolicy = Get-ItemProperty -Path "HKLM:\\System\\CurrentControlSet\\Control\\Lsa" -Name "AuditPrivilegeUse" -ErrorAction SilentlyContinue
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+      
+      $data = $auditPolicy."AuditPrivilegeUse"
+
+      if ($auditPolicy."AuditPrivilegeUse" -eq 3) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 审核特权使用已开启，当前设置值为：" + $data
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 审核特权使用未开启，当前设置值为：" + $data
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "AuditPrivilegeUse.*3"
+    harm: 未开启审核特权使用可能使得无法监控系统特权使用，从而导致信息泄露和安全威胁。
+    solution: 在安全选项中开启 "审核特权使用" 配置，以便监控系统特权使用，提高系统安全性。
+  - uid: CHK048
+    description: 查看所有账号，删除无关账号
+    riskLevel: high
+    query: |
+      # 查看所有账号
+      $accounts = Get-LocalUser
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      # 手动核查
+      if ($accounts.Count -gt 0) {
+          $accountNames = $accounts | ForEach-Object { $_.Name } | Out-String
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 手动核查账号信息：" + $accountNames
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 无有效账号"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "accounts.*>0"
+    harm: 存在无关账号可能会给系统带来安全威胁。
+    solution: 手动查看账号信息，删除无关账号，以提高系统安全性。
+  - uid: CHK049
+    description: 检查管理员账号与guest账号
+    riskLevel: high
+    query: |
+      # 查询管理员账号
+      $adminName = Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DefaultUserName"
+
+      # 查询guest账号
+      $guestAccount = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "EnableGuestAccount"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($adminName."DefaultUserName" -ne "Administrator" -and $guestAccount."EnableGuestAccount" -eq 0) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 管理员账号名为："+ $adminName.DefaultUserName + "，Guest账号启用状态为：" + $guestAccount.EnableGuestAccount
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 管理员账号名为："+ $adminName.DefaultUserName + "，Guest账号启用状态为：" + $guestAccount.EnableGuestAccount
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "DefaultUserName.*Administrator,EnableGuestAccount.*0"
+    harm: 管理员账号与guest账号未正确设置，可能会导致系统遭受攻击，从而造成数据泄露和安全威胁。
+    solution: 在系统设置中正确设置管理员账号与guest账号，以便提高系统安全性。
+  - uid: CHK050
+    description: 本地系统强制关机是否只指派给Administrators组
+    riskLevel: high
+    query: |
+      # 查询本地系统强制关机是否只指派给Administrators组
+      $shutdownPrivilege = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "SeShutdownPrivilege"
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($shutdownPrivilege."SeShutdownPrivilege" -eq "*S-1-5-32-544") {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 本地系统强制关机指派给的组为：" + $shutdownPrivilege.SeShutdownPrivilege
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 本地系统强制关机指派给的组为：" + $shutdownPrivilege.SeShutdownPrivilege
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "SeShutdownPrivilege.*S-1-5-32-544"
+    harm: 未正确配置本地系统强制关机，可能导致恶意用户非法关闭系统，从而导致信息泄露和安全威胁。
+    solution: 在安全选项中仅指派 "SeShutdownPrivilege" 给Administrators组，以便防止恶意用户非法关闭系统，提高系统安全性。
+  - uid: CHK051
+    description: 查看是否安装防病毒软件
+    riskLevel: high
+    query: |
+      # 检查防病毒软件
+      $processes = Get-Process | Where-Object {$_.Name -match "fwMain|RavMonD|nod32kui|MPSVC2|MPSVC1|MPSVC|nod32krn|nod32kui|spider|drwebscd|spiderml|spidernt|bdnagent|bdoesrv|bdmcon|livesrv|bdss|xcommsvr|mcafee|naPrdMgr|Frameworkservice|Mcshield|Vstskmgr|Tbmon|shstat|UpdaterUI|ashwebsv|ashdisp|aswupdsv|ashserv|kvmonxp|kvwsc|kvsrvxp|avp|kavscr|KPFWSvc|KPFW32|KMailMon|KWatch|KAVStart|KPFWSvc|SNDSrvc|SPBBCSvc|ISSVC|defwatch|ccSetMgr|ccproxy|SmcGui|Smc|PccNTMon|smc|NTRtScan|360sd|inoRT|ekrn|egui|360Safe"}
+
+      # 构建结果对象
+      $result = @{
+          "status"  = $null;
+          "outputs" = $null;
+      }
+
+      if ($processes.Count -gt 0) {
+          $result["status"]  = 0 # 核查通过
+          $result["outputs"] = "核查内容: 已安装防病毒软件，当前运行的防病毒软件进程为：$($processes.Name -join ', ')"
+      } else {
+          $result["status"]  = 1 # 核查失败
+          $result["outputs"] = "核查内容: 未安装防病毒软件"
+      }
+
+      # 生成 JSON 输出
+      $result | ConvertTo-Json
+    expectedOutput: "fwMain|RavMonD|nod32kui|MPSVC2|MPSVC1|MPSVC|nod32krn|nod32kui|spider|drwebscd|spiderml|spidernt|bdnagent|bdoesrv|bdmcon|livesrv|bdss|xcommsvr|mcafee|naPrdMgr|Frameworkservice|Mcshield|Vstskmgr|Tbmon|shstat|UpdaterUI|ashwebsv|ashdisp|aswupdsv|ashserv|kvmonxp|kvwsc|kvsrvxp|avp|kavscr|KPFWSvc|KPFW32|KMailMon|KWatch|KAVStart|KPFWSvc|SNDSrvc|SPBBCSvc|ISSVC|defwatch|ccSetMgr|ccproxy|SmcGui|Smc|PccNTMon|smc|NTRtScan|360sd|inoRT|ekrn|egui|360Safe"
+    harm: 未安装防病毒软件可能使得系统受到病毒、木马、恶意程序等攻击，从而导致系统安全性受到威胁。
+    solution: 安装防病毒软件，提高系统安全性。

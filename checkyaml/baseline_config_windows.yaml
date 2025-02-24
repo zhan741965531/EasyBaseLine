@@ -1,0 +1,2355 @@
+basic_info:
+  check_id: A0002
+  check_name: windows安全基线检查
+  check_type: 安全审计
+  check_description: |
+    Windows安全基线检查，用于评估系统密码策略的合规性。
+  check_executor: powershell
+  operating_system:
+    - Windows Server 2012
+    - Windows Server 2016
+    - Windows Server 2019
+  creation_date: 2023-08-28
+  last_modified_date: 2023-08-28
+  check_version: 1.0
+  additional_information: |
+    本检查基于CIS (Center for Internet Security) 的密码策略配置建议进行了定制化。它旨在帮助管理员确保系统密码策略符合最佳实践，以提高系统的安全性。
+baseline_check_items:
+  - uid: CHK001
+    description: 检查是否已启用密码复杂性要求
+    riskLevel: 低风险
+    query: |
+      function Check-PasswordComplexity {
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt      
+          $PasswordComplexity = $content | Where-Object { $_ -match "PasswordComplexity" }
+          $PasswordComplexity = $PasswordComplexity.Split("=")[1].Trim()
+          $result = @{
+              "status" = $null
+              "outputs" = $null
+          }
+      
+          if ($PasswordComplexity -eq 1) {
+              $result["status"] = 0
+              $result["outputs"] = "检查是否已启用密码复杂性要求，当前已启用策略，核查值为：$PasswordComplexity"
+          } else {
+              $result["status"] = 1
+              $result["outputs"] = "检查是否已启用密码复杂性要求，当前未启用策略，核查值为：$PasswordComplexity"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-PasswordComplexity
+    expectedOutput: =1
+    harm: 未启用密码复杂性要求可能导致弱密码存在，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\密码策略”，在右边窗格中找到“密码必须符合复杂性要求”，配置为“已启用”。
+  - uid: CHK002
+    description: 检查是否已正确配置密码长度最小值
+    riskLevel: 低风险
+    query: |
+      function Check-PasswordLength {
+           $seceditOutput = secedit /export /cfg config.txt
+           $content = Get-Content -Path config.txt
+           $minPasswordLengthLine = $content | Where-Object { $_ -match "MinimumPasswordLength" }
+           $minPasswordLength = $minPasswordLengthLine.Split("=")[1].Trim()
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($minPasswordLength -gt 6) {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已正确配置密码长度最小值，密码长度应该大于等等于6，核查值为：$minPasswordLength"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已正确配置密码长度最小值，密码长度应该大于等等于6，核查值为：$minPasswordLength"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-PasswordLength
+    expectedOutput: '>=6'
+    harm: 未正确配置密码长度最小值可能导致弱密码存在，增加系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\密码策略”，在右边窗格中找到“密码长度最小值”，配置为不小于标准值的值。
+  - uid: CHK003
+    description: 检查是否已正确配置密码最短使用期限
+    riskLevel: 低风险
+    query: |
+      function Check-PasswordMinAge {
+           $seceditOutput = secedit /export /cfg config.txt
+           $content = Get-Content -Path config.txt
+           $minPasswordAge = $content | Where-Object { $_ -match "MinimumPasswordAge" }
+           $minPasswordAge = $minPasswordAge.Split("=")[1].Trim()
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($minPasswordAge -gt 0) {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已正确配置密码最短使用期限，密码最短使用期限不应为0，核查值为：$minPasswordAge"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已正确配置密码最短使用期限，密码最短使用期限不应为0，核查值为：$minPasswordAge"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-PasswordMinAge
+    expectedOutput: '!=0'
+    harm: 未正确配置密码最短使用期限可能导致密码过于频繁地更改，降低系统安全性。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\密码策略”，在右边窗格中找到“密码最短存留期(使用期限)”，配置为非0值。如果希望“强制密码历史”有效，则需要将密码最短使用期限设置为大于
+      0 的值。
+  - uid: CHK004
+    description: 域环境：检查是否已启用'域环境下禁止计算机帐户更改密码'策略
+    riskLevel: 低风险
+    query: |
+      function Check-ComputerAccountPasswordChangePolicy {
+          # 构建结果对象
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+      
+          if ($computerSystem.DomainRole -eq 0 -or $computerSystem.DomainRole -eq 2) {
+             $result["status"]  = 0
+             $result["outputs"] = "域环境：检查是否已启用'域环境下禁止计算机帐户更改密码'策略，当前环境不为域环境"
+             $result | ConvertTo-Json
+             return 
+          } 
+      
+          # 检查是否已启用'域环境下禁止计算机帐户更改密码'策略
+          $policy = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -Name "DisablePasswordChange").DisablePasswordChange
+      
+      
+          if ($policy -match "0x1") {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "域环境：检查是否已启用'域环境下禁止计算机帐户更改密码'策略,当前已启用'域环境下禁止计算机帐户更改密码'策略或者不存在域环境，核查值为: $policy"
+          } else {
+              $result["status"]  = 1 # 核查合格
+              $result["outputs"] = "域环境：检查是否已启用'域环境下禁止计算机帐户更改密码'策略,当前未启用'域环境下禁止计算机帐户更改密码'策略，核查值为: $policy"
+          }
+      
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ComputerAccountPasswordChangePolicy
+    expectedOutput: NotDomainRole|0x1
+    harm: 未启用“域环境下禁止计算机帐户更改密码”策略可能增加系统遭受密码攻击的风险。
+    solution: 启用“域环境下禁止计算机帐户更改密码”策略，确保计算机帐户无法更改密码，提高系统安全性。
+  - uid: CHK005
+    description: 检查是否已更改管理员帐户名称
+    riskLevel: 低风险
+    query: |
+      function Check-AdministratorAccountName {
+          # 检查管理员帐户名称
+          $adminName = (Get-LocalUser -Name "Administrator" -ErrorAction SilentlyContinue).Name
+      
+          # 构建结果对象
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($adminName -eq "Administrator") {
+              $result["status"] = 1 # 核查不合格
+              $result["outputs"] = "检查是否已更改管理员帐户名称，当前管理员帐户名称未更改，核查值为: $adminName"
+          }
+          else {
+              $result["status"] = 0 # 核查合格
+              $result["outputs"] = "检查是否已更改管理员帐户名称，当前管理员帐户名称已更改为：$adminName"
+          }
+      
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+      
+      Check-AdministratorAccountName
+    expectedOutput: "!='Administrator'"
+    harm: 未更改管理员帐户名称可能增加系统遭受攻击的风险，因为默认的管理员帐户是攻击者的常用目标。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“(帐户:)重命名(系统)管理员帐户”，更改其默认设置“Administrator”(注意：若当前是以Administrator用户登录，则无法更改)。
+  - uid: CHK006
+    description: 检查是否按照权限、责任创建、使用用户账号
+    riskLevel: 低风险
+    query: |
+      function Check-LocalUserCount {
+          # 检查已启用的本地用户的个数
+          $userCount = (Get-LocalUser | Where-Object { $_.Enabled }).Count
+      
+          # 构建结果对象
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($userCount -eq 2) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否按照权限、责任创建、使用用户账号，当前已启用的本地用户个数应大于等于2个，核查值为：$userCount"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否按照权限、责任创建、使用用户账号，当前已启用的本地用户个数符合要求，核查值为：$userCount"
+          }
+      
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-LocalUserCount
+    expectedOutput: '>=2'
+    harm: 未按照权限、责任创建、使用用户账号可能导致未授权的用户访问系统，增加系统遭受攻击的风险。
+    solution:
+      此项不适用于域环境。打开命令提示符，运行命令“compmgmt.msc”打开计算机管理面板，浏览到路径“计算机管理(本地)\系统工具\本地用户和组\用户”，新建一个用户并启用它。在域环境下实际值将显示为100。
+  - uid: CHK007
+    description: 检查是否已正确配置“复位帐户锁定计数器”时间
+    riskLevel: 低风险
+    query: |
+      function Check-AccountLockoutResetTime {
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $resetTimeLine = $content | Where-Object { $_ -match "ResetLockoutCount" }
+          $resetTime = $resetTimeLine.Split("=")[1].Trim()
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($resetTime -ge 1) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置'复位帐户锁定计数器'时间，当前复位帐户锁定计数器时间应大于等于1，核查值为：$resetTime"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置'复位帐户锁定计数器'时间，当前复位帐户锁定计数器时间应大于等于1，核查值为：$resetTime"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AccountLockoutResetTime
+    expectedOutput: '>=1'
+    harm: 未正确配置“复位帐户锁定计数器”时间可能导致帐户锁定功能无效，增加系统遭受暴力破解攻击的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\帐户锁定策略”，在右边窗格中找到“复位(重置)帐户锁定计数器”，配置为不小于标准值的值。（注：如果无法配置，首先需要配置账户锁定阈值大于0，然后账户锁定时间和复位(重置)账户锁定计数器会自动生成一个默认值。之后可手动配置复位(重置)账户锁定计数器）
+  - uid: CHK008
+    description: 检查是否已正确配置帐户锁定时间
+    riskLevel: 低风险
+    query: |
+      function Check-AccountLockoutPolicy {
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $LockoutDuration = $content | Where-Object { $_ -match "LockoutDuration" }
+          $LockoutDuration = $LockoutDuration.Split("=")[1].Trim()
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($ResetLockoutCount -ge 1) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置帐户锁定时间，当前配置帐户锁定时间已配置，核查值为：$ResetLockoutCount"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置帐户锁定时间，当前配置帐户锁定时间未配置，核查值为：$ResetLockoutCount"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AccountLockoutPolicy
+    expectedOutput: '>=1'
+    harm: 未正确配置帐户锁定时间可能导致安全漏洞，提高系统遭受暴力破解的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\帐户锁定策略”，在右边窗格中找到“帐户锁定时间”，配置为不小于标准值的值。要配置此设置必须先配置“帐户锁定阈值”。当配置为0时，检测到的实际值为-1。
+  - uid: CHK009
+    description: 检查是否已正确配置“强制密码历史”
+    riskLevel: 低风险
+    query: |
+      function Check-PasswordHistory {
+           $seceditOutput = secedit /export /cfg config.txt
+           $content = Get-Content -Path config.txt
+           $passwordHistoryLine = $content | Where-Object { $_ -match "PasswordHistorySize" }
+           $passwordHistorySize = $passwordHistoryLine.Split("=")[1].Trim()
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($passwordHistorySize -gt 5) {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已正确配置'强制密码历史',当前强制密码历史个数应大于5，核查值为：$passwordHistorySize"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已正确配置强制密码历史',当前强制密码历史个数应大于5，核查值为：$passwordHistorySize"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-PasswordHistory
+    expectedOutput: '>5'
+    harm: 未正确配置“强制密码历史”可能导致密码重复使用，降低系统安全性。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\密码策略”，在右边窗格中找到“强制密码历史”，配置为不小于标准值的值。
+  - uid: CHK010
+    description: 检查是否已删除或禁用高危帐户
+    riskLevel: 低风险
+    query: |
+      function Check-HighRiskAccount {
+          # 检查高危帐户
+          $guestAccount = Get-LocalUser -Name "Guest" -ErrorAction SilentlyContinue
+      
+          # 构建结果对象
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($guestAccount -ne $null -and $guestAccount.Enabled) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已删除或禁用高危帐户，Guest 帐户已启用"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已删除或禁用高危帐户，Guest 帐户已禁用"
+          }
+      
+          # 生成 JSON 输出
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-HighRiskAccount
+    expectedOutput: 禁用Guest
+    harm: 未删除或禁用高危帐户，Guest 帐户的启用可能导致安全漏洞和未经授权的访问。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“(帐户:)来宾帐户状态”，配置为“已禁用”。
+  - uid: CHK011
+    description: 检查是否按组进行用户管理
+    riskLevel: 低风险
+    query: |
+      function Check-LocalUserGroupCount {
+          $builtInGroups = @("Administrators", "Users", "Guests")
+      
+          $groups = Get-LocalGroup | Where-Object { $builtInGroups -notcontains $_.Name }
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($groups.Count -gt 0) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否按组进行用户管理,当前非操作系统内置的本地用户组个数应大于0个，核查值为：$($groups.Count)"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否按组进行用户管理,当前非操作系统内置的本地用户组个数应大于0个，核查值为：$($groups.Count)"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-LocalUserGroupCount
+    expectedOutput: '>0'
+    harm: 没有按组进行用户管理可能导致安全漏洞，提高系统遭受攻击的风险。
+    solution:
+      此项不适用于域环境。打开命令提示符，运行命令“compmgmt.msc”打开计算机管理面板，浏览到路径“计算机管理(本地)\系统工具\本地用户和组\组”，新建一个用户组，并使用它管理用户。在域环境下实际值将显示为100。
+  - uid: CHK012
+    description: 检查是否已限制可关闭系统的帐户和组
+    riskLevel: 低风险
+    query: |
+      function Check-LimitedAccountsAndGroups {
+          $restrictedAccountsAndGroups = @("*S-1-5-32-544")
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $shutdownPrivilegeLine = $content | Where-Object { $_ -match "SeShutdownPrivilege" }
+          $shutdownPrivilegeAccounts = $shutdownPrivilegeLine.Split("=")[1].Trim().Split(",")
+      
+          # Check if the accounts with shutdown privilege match the criteria.
+          foreach ($account in $shutdownPrivilegeAccounts) {
+              if ($account -match "^\\*S-1-5-32-544\\s*$") {
+                  $restrictedAccountsAndGroups += $account.Trim()
+              }
+          }
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if (($restrictedAccountsAndGroups.Count -eq $shutdownPrivilegeAccounts.Count) -and $shutdownPrivilegeAccounts[0] -eq "*S-1-5-32-544") {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已限制可关闭系统的帐户和组，当前已限制可关闭系统的帐户和组，核查值为：$restrictedAccountsAndGroups"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已限制可关闭系统的帐户和组，当前未限制可关闭系统的帐户和组，核查值为：$shutdownPrivilegeAccounts"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-LimitedAccountsAndGroups
+    expectedOutput: 只匹配^\*S-1-5-32-544\s*$
+    harm: 未正确限制可关闭系统的帐户和组可能导致系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\用户权限分配”，在右边窗格中找到“关闭系统”，配置为仅含有“Administrators”用户组。
+  - uid: CHK013
+    description: 检查是否已正确配置“从网络访问此计算机”策略
+    riskLevel: 低风险
+    query: |
+      function Check-AccessPolicy {
+           $seceditOutput = secedit /export /cfg config.txt
+           $content = Get-Content -Path config.txt
+           $accessPolicyLine = $content | Where-Object { $_ -match "SeNetworkLogonRight" }
+           $accessPolicy = $accessPolicyLine.Split("=")[1].Trim()
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($accessPolicy -match ".+") {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已正确配置’从网络访问此计算机‘策略，当前允许从网络访问此计算机的用户和组存在，核查值为：$accessPolicy"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已正确配置‘从网络访问此计算机’策略，当前允许从网络访问此计算机的用户和组不存在，核查值为：$accessPolicy"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-AccessPolicy
+    expectedOutput: .+
+    harm: 如果未正确配置“从网络访问此计算机”的策略，可能增加系统遭受未经授权的访问的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\用户权限分配(用户权利指派)”，在右边窗格中找到“从网络访问此计算机”，配置为指定授权用户或组。
+  - uid: CHK014
+    description: 检查是否已限制可从远端关闭系统的帐户和组
+    riskLevel: 低风险
+    query: |
+      function Check-RemoteShutdownAccountsAndGroups {
+          $restrictedAccountsAndGroups = @("*S-1-5-32-544")
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $shutdownPrivilegeLine = $content | Where-Object { $_ -match "SeRemoteShutdownPrivilege" }
+          $shutdownPrivilegeAccounts = $shutdownPrivilegeLine.Split("=")[1].Trim().Split(",")
+      
+          # Check if the accounts with shutdown privilege match the criteria.
+          foreach ($account in $shutdownPrivilegeAccounts) {
+          if ($account -match "^\\*S-1-5-32-544\\s*$") {
+          $restrictedAccountsAndGroups += $account.Trim()
+          }
+        }
+      
+          $result = @{
+          "status"  = $null
+          "outputs" = $null
+        }
+      
+          if (($restrictedAccountsAndGroups.Count -eq $shutdownPrivilegeAccounts.Count) -and $shutdownPrivilegeAccounts[0] -eq "*S-1-5-32-544") {
+          $result["status"] = 0 # 核查合格
+          $result["outputs"] = "检查是否已限制可从远端关闭系统的帐户和组，当前已限制可远端关闭系统的帐户和组，核查当前值为: $shutdownPrivilegeAccounts"
+        }
+          else {
+          $result["status"] = 1 # 核查不合格
+          $result["outputs"] = "检查是否已限制可从远端关闭系统的帐户和组，当前未限制可远端关闭系统的帐户和组，核查值为：$shutdownPrivilegeAccounts"
+        }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-RemoteShutdownAccountsAndGroups
+    expectedOutput: 只匹配/^\*S-1-5-32-544\s*$
+    harm: 未限制可从远端关闭系统的帐户和组 可能导致未经授权的关闭操作和系统不安全。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\用户权限分配”，在右边窗格中找到“从远程系统强制关机”，配置为仅含有“Administrators”用户组。
+  - uid: CHK015
+    description: 检查是否已正确配置“允许本地登录”策略
+    riskLevel: 低风险
+    query: |
+      function Check-LocalLoginPolicy {
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt      
+          $SeInteractiveLogonRight = $content | Where-Object { $_ -match "SeInteractiveLogonRight" }
+          $SeInteractiveLogonRight = $SeInteractiveLogonRight.Split("=")[1].Trim()
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($SeInteractiveLogonRight -match ".+") {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置'允许本地登录'策略，当前已经配置'允许本地登录'策略，核查值为：$SeInteractiveLogonRight"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置'允许本地登录'策略，当前未经配置'允许本地登录'策略，核查值为：$SeInteractiveLogonRight"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-LocalLoginPolicy
+    expectedOutput: .+
+    harm: 未正确配置“允许本地登录”策略可能导致未经授权的用户登录，增加系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\用户权限分配(用户权利指派)”，在右边窗格中找到“(允许)在本地登录”，配置为指定授权用户或组。
+  - uid: CHK016
+    description: 检查是否已限制'取得文件或其它对象的所有权'的帐户和组
+    riskLevel: 低风险
+    query: |
+      function Check-OwnershipAccountsAndGroups {
+          $restrictedAccountsAndGroups = @("*S-1-5-32-544")
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $shutdownPrivilegeLine = $content | Where-Object { $_ -match "SeTakeOwnershipPrivilege" }
+          $shutdownPrivilegeAccounts = $shutdownPrivilegeLine.Split("=")[1].Trim().Split(",")
+      
+          # Check if the accounts with shutdown privilege match the criteria.
+          foreach ($account in $shutdownPrivilegeAccounts) {
+          if ($account -match "^\\*S-1-5-32-544\\s*$") {
+          $restrictedAccountsAndGroups += $account.Trim()
+          }
+        }
+      
+          $result = @{
+          "status"  = $null
+          "outputs" = $null
+        }
+      
+          if (($restrictedAccountsAndGroups.Count -eq $shutdownPrivilegeAccounts.Count) -and $shutdownPrivilegeAccounts[0] -eq "*S-1-5-32-544") {
+          $result["status"] = 0 # 核查合格
+          $result["outputs"] = "检查是否已限制'取得文件或其它对象的所有权'的帐户和组，当前已限制'取得文件或其它对象的所有权'的帐户和组，核查值为: $shutdownPrivilegeAccounts"
+        }
+          else {
+          $result["status"] = 1 # 核查不合格
+          $result["outputs"] = "检查是否已限制'取得文件或其它对象的所有权'的帐户和组，当前未限制'取得文件或其它对象的所有权'的帐户和组，核查值为：$shutdownPrivilegeAccounts"
+        }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-OwnershipAccountsAndGroups
+    expectedOutput: /^\*S-1-5-32-544\s*$
+    harm: 未限制'取得文件或其它对象的所有权'的帐户和组 可能导致未经授权的访问和系统不安全。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\用户权限分配”，在右边窗格中找到“取得文件或其他对象的所有权”，配置为仅含有“Administrators”用户组。
+  - uid: CHK017
+    description: 检查是否已开启Windows防火墙
+    riskLevel: 低风险
+    query: |
+      function Check-FirewallStatus {
+          $firewallProfiles = Get-NetFirewallProfile -Name "Domain", "Public", "Private" -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $disabledProfiles = $firewallProfiles | Where-Object { $_.Enabled -eq $false }
+      
+          if ($disabledProfiles) {
+              $result["status"] = 1 # 核查不合格
+              $disabledProfileNames = $disabledProfiles.Name -join ', '
+              $result["outputs"] = "检查是否已开启Windows防火墙，以下防火墙配置文件未开启: $disabledProfileNames"
+          }
+          else {
+              $result["status"] = 0 # 核查合格
+              $result["outputs"] = "检查是否已开启Windows防火墙，当前环境已开启防火墙"
+          }
+      
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-FirewallStatus
+    expectedOutput: NoFirewallWindows|Enabled
+    harm: 未开启Windows防火墙 可能导致未经授权的访问和系统不安全。
+    solution:
+      在Windows2000中，没有Windows防火墙，不检查此项；在WindowsXP及其SP1中，打开控制面板，找到“网络连接”，打开“本地连接”的“属性”对话框，切换到“高级”选项卡，勾选“通过限制或阻止来自Internet…”，并点击下方“设置”按钮设置例外端口；在其余版本的Windows中，打开控制面板，找到“Windows防火墙”，将当前网络位置的防火墙配置为“启用”，并根据实际需求设置例外。
+  - uid: CHK018
+    description: 检查是否已启用TCP/IP筛选功能
+    riskLevel: 低风险
+    query: |
+      function Check-TcpIpFiltering {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+          $os = (Get-WmiObject -Class Win32_OperatingSystem).Caption
+          # For Windows 2000, XP and Server 2003
+          if ($os -match "Windows 2000" -or $os -match "Windows XP" -or $os -match "Windows Server 2003") {
+              # Check if the registry key exists
+              if (Test-Path -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters') {
+                  $filteringEnabled = Get-ItemPropertyValue -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'EnableSecurityFilters'
+      
+                  if ($filteringEnabled -eq 1) {
+                      $result["status"] = 0
+                      $result["outputs"] = "检查是否已启用TCP/IP筛选功能，当前已启用TCP/IP筛选功能，核查值为：$filteringEnabled"
+                  } else {
+                      $result["status"] = 1
+                      $result["outputs"] = "检查是否已启用TCP/IP筛选功能，当前未启用TCP/IP筛选功能，核查值为：$filteringEnabled"
+                  }
+              }
+          } else {
+              # For other OS versions, pass the check
+              $result["status"] = 0
+              $result["outputs"] = "检查是否已启用TCP/IP筛选功能，当前操作系统不需要进行TCP/IP筛选功能核查，核查通过，核查值为：" + $os
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # Call the function
+      Check-TcpIpFiltering
+    expectedOutput: =0x1
+    harm: 如果未启用TCP/IP筛选功能，可能会导致网络安全性降低，增加系统遭受攻击的风险。
+    solution:
+      在Windows2000、WindowsXP、Windows2003、Windows2003R2中，打开控制面板，找到“网络连接”(在Windows2000下，为“网络和拨号连接”)，打开“本地连接”的属性对话框，在“常规”选项卡下，打开“Internet协议(TCP/IP)”的属性对话框，点击“高级”按钮，在弹出的对话框中切换到“选项”选项卡，打开“TCP/IP筛选”的属性对话框，勾选“启用TCP/IP筛选”并根据实际需求配置允许的端口；在其它版本的Windows中，该功能已并入防火墙，不再检查此项。
+  - uid: CHK019
+    description: 检查是否已删除SNMP服务的默认public团体
+    riskLevel: 低风险
+    query: |
+      function Check-SNMPService {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          try {
+              $snmpService = Get-Service -Name SNMP | Select-Object -Property Status
+              if ($snmpService -eq $null) {
+                  $result["status"]  = 0 # 核查合格
+                  $result["outputs"] = "检查是否已删除SNMP服务的默认public团体，当前SNMP服务已删除"
+              } else {
+                  $publicString = "public"
+                  $publicCommunity = Get-SnmpCommunity -CommunityName $publicString
+                  if ($publicCommunity -eq $null) {
+                      $result["status"]  = 0 # 核查合格
+                      $result["outputs"] = "检查是否已删除SNMP服务的默认public团体，当前SNMP服务的默认public团体已删除"
+                  } else {
+                      $result["status"]  = 1 # 核查不合格
+                      $result["outputs"] = "检查是否已删除SNMP服务的默认public团体，当前SNMP服务的默认public团体未删除，核查值为：$publicCommunity"
+                  }
+              }
+          } catch {
+              $result["status"]  = 2 # 核查不合格
+              $result["outputs"] = "检查是否已删除SNMP服务的默认public团体，检查SNMP服务时发生错误: " + $_.Exception.Message
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SNMPService
+    expectedOutput: NoPublic|NoSNMP
+    harm: 默认public团体存在可能导致SNMP服务遭受攻击，增加系统遭受攻击的风险。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，在右边窗格中找到名称为“SNMP Service”的服务(若未找到则表示未安装SNMP服务，即合规)，停止此服务，或打开其属性对话框，切换到“安全”选项卡，删除public团体，或修改其名字。
+  - uid: chk020
+    description: 检查是否已启用并正确配置ICMP攻击保护
+    riskLevel: 低风险
+    query: |
+      function Check-IcmpProtection {
+          $output = $null
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          try {
+              $icmpRedirect = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnableICMPRedirect").EnableICMPRedirect
+      
+              if ($icmpRedirect -eq 0) {
+                  $result["status"]  = 0
+                  $result["outputs"] = "检查是否已启用并正确配置ICMP攻击保护，当前已禁用ICMP重定向，核查值为：$icmpRedirect"
+              } else {
+                  $result["status"]  = 1
+                  $result["outputs"] = "检查是否已启用并正确配置ICMP攻击保护，当前未禁用ICMP重定向，核查值为：$icmpRedirect"
+              }
+          } catch {
+              $result["status"]  = 2
+              $result["outputs"] = "检查是否已启用并正确配置ICMP攻击保护，查询出错，请手动核查"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-IcmpProtection
+    expectedOutput: =0x0
+    harm: 未启用或未正确配置ICMP攻击保护可能增加系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“EnableICMPRedirect”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-1。
+  - uid: CHK021
+    description: 检查是否已禁用失效网关检测
+    riskLevel: 低风险
+    query: |
+      function Check-DeadGatewayDetection {
+      
+          $expectedValue = "0x0"
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $EnableDeadGWDetect = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnableDeadGWDetect" -ErrorAction SilentlyContinue).EnableDeadGWDetect 
+      
+          if ($EnableDeadGWDetect -eq $expectedValue) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已禁用失效网关检测，当前已禁用失效网关检测，核查值为：$EnableDeadGWDetect"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已禁用失效网关检测，当前未禁用失效网关检测或者未配置，核查值为：$EnableDeadGWDetect"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-DeadGatewayDetection
+    expectedOutput: =0x0
+    harm: 未禁用失效网关检测可能导致网络中失效的网关被误认为可用，影响网络连接的可靠性。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“EnableDeadGWDetect”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-1。如果不将该值设置为
+      0，攻击可能会强制服务器切换网关，而切换到的新网关可能并不是您打算使用的网关。
+  - uid: CHK022
+    description: 检查是否已正确配置TCP连接存活时间
+    riskLevel: 低风险
+    query: |
+      function Check-TCPConnectionTimeout {
+          $expectedValue = 0x493e0
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $tcpConnectionTimeout = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "KeepAliveTime" -ErrorAction SilentlyContinue
+      
+          if ($tcpConnectionTimeout -eq $null -or $tcpConnectionTimeout.KeepAliveTime -gt $expectedValue) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置TCP连接存活时间，当前连接存活时间未设置或者大于$expectedValue，核查值为：$($tcpConnectionTimeout.KeepAliveTime)"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置TCP连接存活时间，当前连接存活时间设置合格，核查值为：$($tcpConnectionTimeout.KeepAliveTime)"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-TCPConnectionTimeout
+    expectedOutput: <=0x493e0
+    harm: 未正确配置TCP连接存活时间可能导致连接保持时间不合理，增加网络资源占用和连接断开的风险。
+    solution: |
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“KeepAliveTime”、类型为DWORD、数据为标准值(注意：标准值是以毫秒为单位的)以内的数值，若已存在则修改其数据。此数据的有效值为1-0xFFFFFFFF。该值控制 TCP 通过发送“保持活动”的数据包来验证空闲连接仍然完好无损的频率。如果仍能连接到远程计算机，该计算机就会对“保持活动”的数据包作出应答。默认情况下，不发送“保持活动”的数据包。建议将该值设置为 300,000（5 分钟）（十进制基数格式）。
+  - uid: CHK023
+    description: 检查是否已正确配置重传单独数据片段的次数
+    riskLevel: 低风险
+    query: |
+      function Check-RetransmissionCount {
+          $expectedValue = "0x2"
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $retransmissionCount = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpMaxDataRetransmissions" -ErrorAction SilentlyContinue
+      
+          if ($retransmissionCount.TcpMaxDataRetransmissions -eq $expectedValue) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置重传单独数据片段的次数，当前重传单独数据片段的次数设置合格，核查值为：$($retransmissionCount.TcpMaxDataRetransmissions)"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置重传单独数据片段的次数，当前重传单独数据片段的次数设置不合格或者未配置，核查值为：$($retransmissionCount.TcpMaxDataRetransmissions)"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-RetransmissionCount
+    expectedOutput: =0x2
+    harm: 未正确配置重传单独数据片段的次数可能导致网络传输中丢失的数据片段无法恢复，影响数据传输的可靠性。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“TcpMaxDataRetransmissions”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-65535。
+  - uid: CHK024
+    description: 检查是否已禁用路由发现功能
+    riskLevel: 低风险
+    query: |
+      function Check-RouteDiscovery {
+           $registryPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters"
+           $registryProperty = "PerformRouterDiscovery"
+           $routeDiscoveryStatus = Get-ItemProperty -Path $registryPath -Name $registryProperty -ErrorAction SilentlyContinue
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($routeDiscoveryStatus.$registryProperty -eq 0x0) {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已禁用路由发现功能，当前路由发现功能已禁用，核查值为："+ $routeDiscoveryStatus.$registryProperty
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已禁用路由发现功能，当前路由发现功能未禁用或未配置，核查值为："+ $routeDiscoveryStatus.$registryProperty
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-RouteDiscovery
+    expectedOutput: =0x0
+    harm: 路由发现功能如果未禁用，可能会导致非预期的路由行为，增加系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“PerformRouterDiscovery”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-1。0表示禁用此功能，1表示开启。“路由发现”请求路由信息以构建整个网络，如果开启此功能，系统会将此信息添加到路由表中。
+  - uid: CHK025
+    description: 检查是否已修改默认的远程桌面(RDP)服务端口
+    riskLevel: 低风险
+    query: |
+      function Check-RDPPort {
+          $expectedValue = "0xd3d"
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $rdpPort = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "PortNumber" -ErrorAction SilentlyContinue
+      
+          if ($rdpPort -ne $null -and $rdpPort.PortNumber -eq $expectedValue) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已修改默认的远程桌面(RDP)服务端口，当前远程桌面(RDP)服务端口配置为3389，核查值为：$($rdpPort.PortNumber)"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已修改默认的远程桌面(RDP)服务端口，当前远程桌面(RDP)服务端口配置非3389，核查值为：$($rdpPort.PortNumber)"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-RDPPort
+    expectedOutput: '!=0xd3d'
+    harm: 未修改默认的远程桌面(RDP)服务端口可能导致攻击者利用默认端口进行远程桌面攻击，增加系统遭受入侵的风险。
+    solution: |
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp”，修改名称为“PortNumber”的数值的数据，使其不等于标准值(注意：标准值为16进制表示)。此数据的有效值为1-65535。
+      防火墙增加端口策略：
+      1.Windows Xp、Windows 2003配置如下：
+      执行cmd命令：
+      netsh firewall add portopening protocol=TCP port=PORT name="Remote Desktop(TCP-In)PORT" mode=ENABLE
+      netsh firewall add portopening protocol=UDP port=PORT name="Remote Desktop(UDP-In)PORT" mode=ENABLE
+      PORT为更改后的RDP端口
+      2.Windows vista、Windows Server 2008、Windows 7、Windows Server 2012、Windows Server 2016：
+      执行cmd命令：
+      netsh advfirewall firewall add rule name="Remote Desktop (TCP-In)PORT" dir=in localport=PORT protocol=tcp action=allow
+      netsh advfirewall firewall add rule name="Remote Desktop (UDP-In)PORT" dir=in localport=PORT protocol=udp action=allow
+      PORT为更改后的RDP端口
+  - uid: CHK026
+    description: 检查是否已启用并正确配置TCP碎片攻击保护
+    riskLevel: 低风险
+    query: |
+      function Check-TCPFragmentationProtection {
+          $expectedValue = "0x0"
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $tcpFragmentation = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnablePMTUDiscovery" -ErrorAction SilentlyContinue
+      
+          if ($tcpFragmentation.EnablePMTUDiscovery -eq $expectedValue) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已启用并正确配置TCP碎片攻击保护，当前已将TCP最大传输单元(MTU)大小自动探测设置为0，核查值为：$($tcpFragmentation.EnablePMTUDiscovery)"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已启用并正确配置TCP碎片攻击保护，当前已将TCP最大传输单元(MTU)大小自动探测设置为0或者未配置TCP最大传输单元(MTU)大小自动探测，核查值为：$($tcpFragmentation.EnablePMTUDiscovery)"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-TCPFragmentationProtection
+    expectedOutput: =0x0
+    harm: 启用或配置不正确的TCP碎片攻击保护可能导致碎片攻击成功，影响网络连接的可靠性和安全性。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“EnablePMTUDiscovery”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-1，其中0表示不自动探测MTU大小，都使用576字节的MTU，1表示自动探测MTU大小。如果不将该值设置为
+      0，攻击者可能会强制 MTU 值变得非常小，从而导致堆栈的负荷过大。
+  - uid: CHK027
+    description: 检查是否已启用并正确配置源路由攻击保护
+    riskLevel: 低风险
+    query: |
+      function Check-SourceRoutingProtection {
+          $checkPoint = "1:检查源路由配置"
+          $expectedValue = "0x2"
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $sourceRouting = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnableIPSourceRouting" -ErrorAction SilentlyContinue
+      
+          if ($sourceRouting.EnableIPSourceRouting -eq $expectedValue) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已启用并正确配置源路由攻击保护核查内容，当前已正确配置检查源路由配置为0x2，核查值为：$($sourceRouting.EnableIPSourceRouting)"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已启用并正确配置源路由攻击保护核查内容，当前未将正确配置检查源路由配置为0x2或者未配置配置检查源路由，核查值为：$($sourceRouting.EnableIPSourceRouting)"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SourceRoutingProtection
+    expectedOutput: =0x2
+    harm: 未启用或配置不正确的源路由攻击保护可能导致攻击者伪造源IP地址，增加系统遭受IP欺骗和网络攻击的风险。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“DisableIPSourceRouting”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-2，其中0表示转发所有数据包，1表示不转发源路由的数据包，2表示丢弃所有传入源路由的数据包。
+  - uid: chk028
+    description: 检查是否已关闭不必要的服务 - Simple TCP/IP Services
+    riskLevel: 高风险
+    query: |
+      function Check-SimpleTcpIpServices {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          try {
+              $service = Get-WmiObject -Class Win32_Service -Filter "Name = 'simpleserver'"
+      
+              if ($service -ne $null) {
+                  if ($service.State -eq "Running") {
+                      $result["status"]  = 1
+                      $result["outputs"] = "检查是否已关闭不必要的服务 - Simple TCP/IP Services，当前Simple TCP/IP Services 服务状态为："+ $service.State
+                  } else {
+                      $result["status"]  = 0
+                      $result["outputs"] = "检查是否已关闭不必要的服务 - Simple TCP/IP Services，当前Simple TCP/IP Services 服务状态不为：Running"
+                  }
+              } else {
+                  $result["status"]  = 0
+                  $result["outputs"] = "检查是否已关闭不必要的服务 - Simple TCP/IP Services，当前Simple TCP/IP Services 服务未找到"
+              }
+          } catch {
+              $result["status"]  = 2
+              $result["outputs"] = "检查是否已关闭不必要的服务 - Simple TCP/IP Services，查询 Simple TCP/IP Services 服务时发生错误"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SimpleTcpIpServices
+    expectedOutput: '!=Running'
+    harm: 未关闭不必要的服务 - Simple TCP/IP Services 可能增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“Simple TCP/IP Services”或“简单 TCP/IP 服务”的服务。
+  - uid: CHK029
+    description: 检查是否已关闭不必要的服务-DHCP Client
+    riskLevel: 低风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$serviceName
+          )
+      
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($service -ne $null -and $service.Status -eq "Running") {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-DHCP Client，当前 $serviceName 服务状态为：" + $service.Status
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-DHCP Client，当前 $serviceName 服务未运行"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -serviceName "DHCP Client"
+    expectedOutput: '!=Running'
+    harm: 未关闭不必要的服务-DHCP Client 可能导致未经授权的IP地址分配，增加系统遭受攻击的风险。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“DHCP Client”的服务。
+  - uid: CHK030
+    description: 检查是否已关闭不必要的服务-Message Queuing
+    riskLevel: 高风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$serviceName
+          )
+      
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($service -ne $null -and $service.Status -eq "Running") {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Message Queuing，当前 $serviceName 服务状态为：" +  $service.Status
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "核查内容: $serviceName 服务未运行"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -serviceName "Message Queuing"
+    expectedOutput: Running
+    harm: 未关闭不必要的服务-Message Queuing 可能导致未经授权的消息队列使用，增加系统遭受攻击的风险。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“Message Queuing”的服务。
+  - uid: CHK031
+    description: 检查是否已关闭不必要的端口-445
+    riskLevel: 高风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$port
+          )
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $tcpPort = Get-NetTCPConnection | Where-Object { $_.LocalPort -eq $port } | Select-Object -First 1
+      
+          if ($tcpPort) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的端口-445，当前端口 $port 正在使用中"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭不必要的端口-445，端口 $port 未使用"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -port "445"
+    expectedOutput: 445 not use
+    harm: 未关闭不必要的端口-445 可能导致系统易受到SMB协议相关的攻击，增加系统遭受风险的可能性。
+    solution: |
+      1.修改注册表"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\NetBT\Parameters",根据操作系统的是32位还是64位，新建DWORD/QWORD项"SMBDeviceEnabled"，将值改为0
+      2.停止和禁用Server服务。运行services.msc，禁用并停止server服务。
+      3.重启系统
+  - uid: CHK032
+    description: 检查是否已关闭不必要的服务-Simple Mail Transport Protocol (SMTP)
+    riskLevel: 高风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$serviceName
+          )
+      
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($service -ne $null -and $service.Status -eq "Running") {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Simple Mail Transport Protocol (SMTP)，当前 $serviceName 服务状态为：" + $service.Status
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Simple Mail Transport Protocol (SMTP)，当前 $serviceName 服务未运行"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -serviceName "SMTPSVC"
+    expectedOutput: '!=Running'
+    harm: 未关闭不必要的服务-Simple Mail Transport Protocol (SMTP) 可能导致系统易受到邮件相关的攻击，增加系统遭受风险的可能性。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“Simple Mail Transport Protocol
+      (SMTP)”的服务。
+  - uid: CHK033
+    description: 检查是否已关闭不必要的服务-Windows Internet Name Service (WINS)
+    riskLevel: 高风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$serviceName
+          )
+      
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($service -ne $null -and $service.Status -eq "Running") {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Windows Internet Name Service (WINS)，当前 $serviceName 服务状态为：" + $service.Status
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Windows Internet Name Service (WINS)，当前 $serviceName 服务未运行"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -serviceName "WINS"
+    expectedOutput: '!=Running'
+    harm: 未关闭不必要的服务-Windows Internet Name Service (WINS) 可能导致未经授权的名称解析和网络故障，增加系统遭受攻击的风险。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“Windows Internet Name Service
+      (WINS)”或“WINS”的服务。
+  - uid: CHK034
+    description: 检查是否已禁止Windows自动登录
+    riskLevel: 高风险
+    query: |
+      function Check-WindowsAutoLogin {
+          $autoLogon = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($autoLogon.AutoAdminLogon -eq 0 -or $autoLogon.AutoAdminLogon -eq $null ) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已禁止Windows自动登录，当前Windows自动登录已禁用或者未配置，核查值为：" + $autoLogon.AutoAdminLogon
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已禁止Windows自动登录，当前Windows自动登录已启用，核查值为：" + $autoLogon.AutoAdminLogon
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-WindowsAutoLogin
+    expectedOutput: =0
+    harm: 禁止Windows自动登录可以防止未经授权的访问和安全漏洞。
+    solution:
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\Software\Microsoft\Windows
+      NT\CurrentVersion\Winlogon”，将名称为“AutoAdminLogon”的数值修改为0。
+  - uid: CHK035
+    description: 检查是否已关闭不必要的服务-DHCP Server
+    riskLevel: 高风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$serviceName
+          )
+      
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($service -ne $null -and $service.Status -eq "Running") {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-DHCP Server，当前 $serviceName 服务状态为：" + $service.Status
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-DHCP Server，当前 $serviceName 服务未运行"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -serviceName "DHCP Server"
+    expectedOutput: '!=Running'
+    harm: 未关闭不必要的服务-DHCP Server 可能导致未经授权的IP地址分配，增加系统遭受攻击的风险。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“DHCP Server”的服务。
+  - uid: CHK036
+    description: 检查是否已关闭不必要的服务-Remote Access Connection Manager
+    riskLevel: 高风险
+    query: |
+      function Check-ServiceStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$serviceName
+          )
+      
+          $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($service -ne $null -and $service.Status -eq "Running") {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Remote Access Connection Manager，当前 $serviceName 服务状态为：" + $service.Status 
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭不必要的服务-Remote Access Connection Manager，当前 $serviceName 服务未运行"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ServiceStatus -serviceName "Remote Access Connection Manager"
+    expectedOutput: '!=Running'
+    harm: 未关闭不必要的服务-Remote Access Connection Manager 可能导致未经授权的远程访问连接，增加系统遭受攻击的风险。
+    solution: 打开命令提示符，运行命令“services.msc”打开服务管理器，停止显示名称为“Remote Access Connection Manager”的服务。在Windows2000、WindowsXP、Windows2003中，由于此服务在联网环境中较为重要，且无法停止，所以不检查。
+  - uid: CHK037
+    description: 检查是否已安装防病毒软件
+    riskLevel: 中风险
+    query: |
+      function Check-AntivirusInstalled {
+          $antivirus = Get-WmiObject -Query "SELECT * FROM AntiVirusProduct" -Namespace "root\SecurityCenter2" -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($antivirus) {
+              $installedAntivirus = $antivirus | Select-Object -ExpandProperty displayName
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已安装防病毒软件,当前已安装防病毒软件，安装的软件包括: $installedAntivirus"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已安装防病毒软件，当前未安装防病毒软件"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AntivirusInstalled
+    expectedOutput: .+
+    harm: 未安装防病毒软件可能导致系统容易受到病毒和恶意软件的攻击，增加系统遭受威胁的风险。
+    solution: 安装防病毒软件，并及时更新病毒库
+  - uid: CHK038
+    description: 域环境：检查是否已启用'域环境下需要强会话密钥'策略
+    riskLevel: 低风险
+    query: |
+      function Check-GroupPolicy {
+      
+          # 构建结果对象
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+      
+          if ($computerSystem.DomainRole -eq 0 -or $computerSystem.DomainRole -eq 2) {
+             $result["status"]  = 0
+             $result["outputs"] = "域环境：检查是否已启用'域环境下需要强会话密钥'策略，当前环境不为域成员"
+             $result | ConvertTo-Json
+             return 
+          }
+      
+          $RequireStrongKey = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -Name "RequireStrongKey" -ErrorAction SilentlyContinue).RequireStrongKey
+      
+          if ($RequireStrongKey -eq "0x1") {
+                  $result["status"]  = 0 # 核查合格
+                  $result["outputs"] = "域环境：检查是否已启用'域环境下需要强会话密钥'策略,当前已启用'域环境下需要强会话密钥'策略，核查值为：$RequireStrongKey"
+          } else {
+                  $result["status"]  = 1 # 核查不合格
+                  $result["outputs"] = "域环境：检查是否已启用'域环境下需要强会话密钥'策略,当前未启用'域环境下需要强会话密钥'策略，核查值为：$RequireStrongKey"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-GroupPolicy
+    expectedOutput: NotDomainMember|0x1
+    harm: 未启用'域环境下需要强会话密钥'策略可能导致安全性弱化，使得系统容易受到会话劫持等攻击，增加系统遭受威胁的风险。
+    solution: 启用'域环境下需要强会话密钥'策略以加强会话的安全性，并提高系统的整体安全水平。
+  - uid: CHK039
+    description: 检查是否已正确配置“提示用户在密码过期之前进行更改”策略
+    riskLevel: 低风险
+    query: |
+      function Check-PasswordExpirationPolicy {
+          $policyDays = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "PasswordExpiryWarning" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PasswordExpiryWarning
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($policyDays -ge 14) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置’提示用户在密码过期之前进行更改‘策略，当前已正确配置’提示用户在密码过期之前进行更改‘策略，核查值为：$policyDays"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置’提示用户在密码过期之前进行更改‘策略，当前未正确配置‘提示用户在密码过期之前进行更改’策略，核查值为：$policyDays"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-PasswordExpirationPolicy
+    expectedOutput: '>=14'
+    harm: 未正确配置“提示用户在密码过期之前进行更改”策略可能导致用户无法及时更改密码，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“交互式登录: 提示用户在密码过期之前进行更改”或“交互式登录: 在密码到期前提示用户更改密码”，配置为不小于标准值(注意：标准值为16进制表示)的值。Windows2000中无此设置，不检查此项。
+  - uid: CHK040
+    description: 域环境：检查是否已正确配置“可被缓存保存的登录的个数”策略
+    riskLevel: 低风险
+    query: |
+      function Check-CachedLogonCount {
+          # 构建结果对象
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+      
+          if ($computerSystem.DomainRole -eq 0 -or $computerSystem.DomainRole -eq 2) {
+             $result["status"]  = 0
+             $result["outputs"] = "域环境：检查是否已启用'域环境下禁止计算机帐户更改密码'策略，当前环境不为域成员"
+             $result | ConvertTo-Json
+             return 
+          } 
+      
+          $cachedLogonCount = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "CachedLogonsCount" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty CachedLogonsCount) -as [int]
+      
+          if ($cachedLogonCount -le 5) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "域环境：检查是否已正确配置‘可被缓存保存的登录的个数’策略，当前已正确配置'可被缓存保存的登录的个数'策略，核查值为：$cachedLogonCount"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "域环境：检查是否已正确配置‘可被缓存保存的登录的个数’策略，当前未正确配置'可被缓存保存的登录的个数'策略，核查值为：$cachedLogonCount"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-CachedLogonCount
+    expectedOutput: <=5
+    harm: 未正确配置“可被缓存保存的登录的个数”策略可能导致安全隐患，增加系统遭受攻击的风险。
+    solution: |
+      此项仅适用于域成员。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“(交互式登录：)可被缓存保存的前次登录个数（在域控制器不可用的情况下）”或“交互式登录: 之前登录到缓存的次数(域控制器不可用时)”，配置为不大于标准值的值。非域成员主机的实际值将显示为0。
+  - uid: CHK041
+    description: 检查是否已正确配置'锁定会话时显示用户信息'策略
+    riskLevel: 低风险
+    query: |
+      function Check-PolicyStatus {
+          param(
+              [Parameter(Mandatory=$true)]
+              [string]$policyName
+          )
+      
+          $policy = Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name $policyName -ErrorAction SilentlyContinue
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($policy -ne $null -and $policy.$policyName -eq 0x3) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置'锁定会话时显示用户信息'策略，当前'锁定会话时显示用户信息'策略配已置为0x3,当前配置为：" + $policy.$policyName
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置'锁定会话时显示用户信息'策略，当前'锁定会话时显示用户信息'策略配未置为0x3,当前配置为：" + $policy.$policyName
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-PolicyStatus -policyName "dontdisplaylastusername"
+    expectedOutput: '=0x3'
+    harm: 如果未正确配置'锁定会话时显示用户信息'策略，可能会导致用户信息泄露，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System”，添加名称为“DontDisplayLockedUserId”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为1-3，其中1表示显示名称、域名、用户名，2表示仅显示用户名称，3表示不显示用户信息。WindowsXP需要安装207399补丁才能生效；Windows2000没有此设置，不检查此项。
+  - uid: CHK042
+    description: 检查是否已禁用Windows硬盘默认共享
+    riskLevel: 低风险
+    query: |
+      function Check-DisableDefaultShares {
+          $defaultShares = Get-SmbShare | Where-Object { $_.Name -in ('C$', 'D$', 'IPC$', 'ADMIN$') }
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($defaultShares) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已禁用Windows硬盘默认共享，当前未禁用Windows硬盘默认共享，默认共享列表: $($defaultShares.Name -join ', ')"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已禁用Windows硬盘默认共享，当前已禁用Windows硬盘默认共享"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-DisableDefaultShares
+    expectedOutput: 不包含'C$', 'D$', 'IPC$', 'ADMIN$'
+    harm: 未禁用Windows硬盘默认共享可能增加系统遭受攻击的风险。
+    solution:
+      此项仅适用于非域环境。首先，打开命令提示符，运行命令“compmgmt.msc”打开计算机管理面板，浏览到路径“计算机管理(本地)\系统工具\共享文件夹\共享”，删除所有硬盘默认共享；然后，在命令提示符中运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\System\CurrentControlSet\
+      Services\LanmanServer\Parameters\”，添加名称为“AutoShareServer”和“AutoShareWks”、类型为DWORD、数据为0的两个数值，若已存在则修改其数据。注意：若关闭C盘默认共享(C$)，将不能使用BVS的SMB扫描。
+  - uid: CHK043
+    description: 检查共享文件夹的权限设置是否安全
+    riskLevel: 低风险
+    query: |
+      function Check-SharePermissions {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+          try {
+              $shares = Get-WmiObject -Class Win32_Share
+              foreach ($share in $shares) {
+                  if ($share.Type -eq 0) {
+                      $acl = Get-Acl -Path $share.Path
+                      foreach ($access in $acl.Access) {
+                          if ($access.IdentityReference.Value -eq "Everyone") {
+                              $result["status"] = 1 # 核查不合格
+                              $result["outputs"] = "检查共享文件夹的权限设置是否安全，当前共享文件夹 $($share.Name) 的权限包含 Everyone"
+                              return $result | ConvertTo-Json
+                          }
+                      }
+                  }
+              }
+              $result["status"] = 0 # 核查合格
+              $result["outputs"] = "检查共享文件夹的权限设置是否安全，当前所有共享文件夹的权限都不包含 Everyone"
+          } catch {
+              $result["status"] = 2 # 核查不合格
+              $result["outputs"] = "检查共享文件夹的权限设置是否安全，检查共享文件夹权限时发生错误: $($_.Exception.Message)"
+          }
+          return $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SharePermissions
+    expectedOutput: 不包含Everyone
+    harm: 共享文件夹的权限设置不正确可能导致数据泄露，增加系统遭受攻击的风险。
+    solution:
+      此项不适用于域控服务器。打开命令提示符，运行命令“compmgmt.msc”打开计算机管理面板，浏览到路径“计算机管理(本地)\系统工具\共享文件夹\共享”，查看每个自定义共享文件夹的共享权限，若其中包含“Everyone(任何人)”，则将其删除。
+  - uid: CHK044
+    description: 检查是否已启用Windows数据执行保护(DEP)
+    riskLevel: 低风险
+    query: |
+      function Check-DEP {
+           $depLevel = (Get-WmiObject -Class Win32_OperatingSystem).DataExecutionPrevention_SupportPolicy
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($depLevel -match "2|3|NoDEPWindows") {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已启用Windows数据执行保护(DEP)，当前Windows数据执行保护(DEP)等级为 2, 3 或 NoDEPWindows，当前值为：$depLevel"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已启用Windows数据执行保护(DEP)，当前Windows数据执行保护(DEP)等级不为 2, 3 或 NoDEPWindows，当前值为：$depLevel"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-DEP
+    expectedOutput: 2|3|NoDEPWindows
+    harm: 若未启用Windows数据执行保护(DEP)，可能导致系统遭受更多类型的攻击。
+    solution:
+      打开控制面板，找到“系统”，打开“系统属性(高级系统设置)”，切换到“高级”选项卡下，点击“性能”中的“设置”按钮弹出“性能选项”对话框，切换到“数据执行保护”选项卡，勾选“仅为基本Windows程序和服务启用DEP”。更改此配置需要重启系统才能生效。在Windows2000、WindowsXP及其SP1上无此设置，不检查此项。
+  - uid: CHK045
+    description: 检查是否已创建多个磁盘分区
+    riskLevel: 低风险
+    query: |
+      function Check-PartitionCount {
+        $result = @{
+        "status"  = $null
+        "outputs" = $null
+      }
+      
+        $partitionCount = (Get-Partition | Measure-Object).Count
+      
+        if ($partitionCount -ge 2) {
+        $result["status"] = 0 # 核查合格
+        $result["outputs"] = "检查是否已创建多个磁盘分区，当前已创建多个磁盘分区，共计：$partitionCount 个"
+      }
+        else {
+        $result["status"] = 1 # 核查不合格
+        $result["outputs"] = "检查是否已创建多个磁盘分区，当前磁盘分区个数未达到预期，共计：$partitionCount 个"
+      }
+      
+        $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-PartitionCount
+    expectedOutput: '>=2'
+    harm: 未创建多个磁盘分区可能导致资源浪费和数据不安全，增加系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“compmgmt.msc”打开计算机管理面板，浏览到路径“计算机管理(本地)\存储\磁盘管理”，调整磁盘分区，使分区个数不小于标准值。或使用其他磁盘分区工具调整。注意：磁盘操作不当，可能会损坏其中数据，请在专业人士指导下进行。
+  - uid: CHK046
+    description: 检查是否已关闭Windows自动播放
+    riskLevel: 低风险
+    query: |
+      function Check-AutoPlayStatus {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $autoPlayStatus = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun").NoDriveTypeAutoRun
+      
+          if ($autoPlayStatus -eq 0xFF) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已关闭Windows自动播放，当前已关闭Windows自动播放，核查值为：$autoPlayStatus"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已关闭Windows自动播放，当前未关闭Windows自动播放或者未配置，核查值为：$autoPlayStatus"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AutoPlayStatus
+    expectedOutput: =0xFF
+    harm: 未关闭Windows自动播放可能导致恶意软件自动运行，增加系统遭受攻击的风险。
+    solution:
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\管理模板\Windows组件\自动播放策略”(适用于Windows2008、WindowsVista、Windows2008R2、Windows7、Windows
+      Server 2012、Windows Server
+      2016)或“本地计算机策略\计算机配置\管理模板\系统”(适用于Windows2000、WindowsXP、Windows2003、Windows2003R2)，在右边窗格中找到“关闭/停用自动播放”，配置为“启用”，且选为对“所有驱动器”生效。
+  - uid: CHK047
+    description: 检查磁盘分区是否都是NTFS文件系统
+    riskLevel: 低风险
+    query: |
+      function Check-FileSystem {
+           $partitions = Get-WmiObject -Class Win32_LogicalDisk
+           $ntfsPartitions = $partitions | Where-Object { $_.FileSystem -eq "NTFS" } | ForEach-Object { $_.DeviceID }
+           $nonNtfsPartitions = $partitions | Where-Object { $_.FileSystem -ne "NTFS" } | ForEach-Object { $_.DeviceID }
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($nonNtfsPartitions) {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查磁盘分区是否都是NTFS文件系统，当前所有磁盘分区的文件系统格式都应为 NTFS，存在非 NTFS 格式的分区：$nonNtfsPartitions ，NTFS格式的分区有：$ntfsPartitions"
+           } else {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查磁盘分区是否都是NTFS文件系统，当前所有磁盘分区的文件系统格式都为 NTFS"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-FileSystem
+    expectedOutput: =NTFS
+    harm: 若磁盘分区不是NTFS文件系统，可能导致数据安全性和系统稳定性降低。
+    solution:
+      打开命令提示符，运行命令“compmgmt.msc”打开计算机管理面板，浏览到路径“计算机管理(本地)\存储\磁盘管理”，调整磁盘分区，使分区的文件系统都是NTFS。或使用其他磁盘分区工具调整。注意：磁盘操作不当，可能会损坏其中数据，请在专业人士指导下进行。
+  - uid: CHK048
+    description: 检查是否已启用“当登录时间用完时自动注销用户”策略
+    riskLevel: 低风险
+    query: |
+      function Check-LogoffPolicy {
+           $seceditOutput = secedit /export /cfg config.txt 2>$null
+           if ($LASTEXITCODE -eq 0) {
+              $content = Get-Content -Path config.txt
+              $policyLine = $content | Where-Object { $_ -match "ForceLogoffWhenHourExpire" }
+              $policyValue = $policyLine.Split("=")[1].Trim()
+           } else {
+              $policyValue = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "ForceLogoffWhenHourExpire").ForceLogoffWhenHourExpire
+           }
+      
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($policyValue -eq 0x1) {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已启用'当登录时间用完时自动注销用户'策略，当登录时间用完时自动注销用户策略已启用，核查值为：$policyValue"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已启用'当登录时间用完时自动注销用户'策略，当登录时间用完时自动注销用户策略未启用，核查值为：$policyValue"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-LogoffPolicy
+    expectedOutput: =0x1
+    harm: 如果未启用“当登录时间用完时自动注销用户”策略，可能会导致用户过长时间占用系统资源，影响其他用户的使用。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“(Microsoft 网络服务器: ) 当登录时间用完时自动注销用户”(适用于Windows2000、WindowsXP、Windows2003、Windows2003R2)或“Microsoft 网络服务器: 登录时间过期后断开与客户端的连接”，配置为“已启用”。
+  - uid: CHK049
+    description: 检查是否已正确配置服务器在暂停会话前所需的空闲时间量
+    riskLevel: 低风险
+    query: |
+      function Check-SessionIdleTimeout {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $idleTimeoutValue = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "MaxIdleTime").MaxIdleTime
+      
+          if ($idleTimeoutValue -eq 15) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置服务器在暂停会话前所需的空闲时间量，当前服务器已正确配置在暂停会话前所需的空闲时间量，核查值为：$idleTimeoutValue"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置服务器在暂停会话前所需的空闲时间量，当前服务器未正确配置在暂停会话前所需的空闲时间量，核查值为：$idleTimeoutValue"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SessionIdleTimeout
+    expectedOutput: =0xF
+    harm: 未正确配置服务器在暂停会话前所需的空闲时间量可能导致会话保持活动状态并占用资源，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“(Microsoft 网络服务器: )暂停(挂起、断开)会话前所需的空闲时间量”，配置为标准值(注意：标准值为16进制表示)。
+  - uid: CHK050
+    description: 检查是否已启用'不显示最后的用户名'策略
+    riskLevel: 低风险
+    query: |
+      function Check-LastUsernamePolicy {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $policyValue = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DontDisplayLastUserName").DontDisplayLastUserName
+      
+          if ($policyValue -eq 1) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已启用'不显示最后的用户名'策略，当前已启用'不显示最后的用户名'策略，核查值为：$policyValue"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已启用'不显示最后的用户名'策略，当前未启用'不显示最后的用户名'策略，核查值为：$policyValue"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-LastUsernamePolicy
+    expectedOutput: =0x1
+    harm: 未启用'不显示最后的用户名'策略可能导致最后的用户名信息被公开显示，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“登录屏幕上不要显示上次登录的用户名”(适用于Windows2000)或“交互式登录: 不显示最后的用户名”，配置为“已启用”。
+  - uid: CHK051
+    description: 检查是否已启用并正确配置Windows自动更新
+    riskLevel: 低风险
+    query: |
+      function Check-WindowsUpdate {
+          if ((Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" -Name "AUOptions").AUOptions){
+            $updateLevel = (Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" -Name "AUOptions").AUOptions 
+          }else{
+            $WUSettings = New-Object -ComObject "Microsoft.Update.AutoUpdate"
+            $updateLevel = $WUSettings.Settings.NotificationLevel
+          }
+           $result = @{
+               "status"  = $null
+               "outputs" = $null
+           }
+      
+           if ($updateLevel -eq 0x4) {
+               $result["status"]  = 0 # 核查合格
+               $result["outputs"] = "检查是否已启用并正确配置Windows自动更新，当前Windows自动更新已启用，核查值为：$updateLevel"
+           } else {
+               $result["status"]  = 1 # 核查不合格
+               $result["outputs"] = "检查是否已启用并正确配置Windows自动更新，当前Windows自动更新未启用或设置级别不正确，核查值为：$updateLevel"
+           }
+      
+           $result | ConvertTo-Json
+       }
+      
+       # 调用核查函数
+       Check-WindowsUpdate
+    expectedOutput: =0x4
+    harm: 如果未启用或错误配置Windows自动更新，可能会导致系统漏洞未及时修复，增加系统遭受攻击的风险。
+    solution: |
+      打开控制面板，找到“自动更新(Windows Update)”，配置为自动下载更新并安装。
+      Windows Server 2016配置方法如下：
+      win+r输入"sconfig"->输入"Windows 更新设置"对应的数字，回车->输入"自动更新"前面的字母，回车。
+      配置成功弹出对话框"Windows 更新设置为 自动"，如果显示为"自定义"，在组策略->管理模板->Windows组件->Windows更新->配置自动更新，选择已禁用。然后重新进行上述自动更新设置
+  - uid: CHK052
+    description: 检查是否已禁用'登录时无须按 Ctrl+Alt+Del'策略
+    riskLevel: 低风险
+    query: |
+      function Check-CtrlAltDelPolicy {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+          $name = "DisableCAD"
+      
+          if(Test-Path $path){
+              try{
+                  $policyValue = (Get-ItemProperty -Path $path -Name $name).$name
+              } catch {
+                  $result["status"]  = 2 # 核查不合格
+                  $result["outputs"] = "检查是否已禁用'登录时无须按 Ctrl+Alt+Del'策略，获取'登录时无须按 Ctrl+Alt+Del'策略失败，错误信息：$($_.Exception.Message)"
+                  return $result | ConvertTo-Json
+              }
+      
+              if ($policyValue -eq 0) {
+                  $result["status"]  = 0 # 核查合格
+                  $result["outputs"] = "检查是否已禁用'登录时无须按 Ctrl+Alt+Del'策略，当前已禁用'登录时无须按 Ctrl+Alt+Del'策略，核查值为：$policyValue"
+              } else {
+                  $result["status"]  = 1 # 核查不合格
+                  $result["outputs"] = "检查是否已禁用'登录时无须按 Ctrl+Alt+Del'策略，当前未禁用'登录时无须按 Ctrl+Alt+Del'策略或者未配置，核查值为：$policyValue"
+              }
+          } else {
+              $result["status"]  = 2 # 核查不合格
+              $result["outputs"] = "检查是否已禁用'登录时无须按 Ctrl+Alt+Del'策略，未找到'登录时无须按 Ctrl+Alt+Del'策略注册表路径"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-CtrlAltDelPolicy
+    expectedOutput: =0x0
+    harm: 未禁用'登录时无须按 Ctrl+Alt+Del'策略可能导致提供虚假登录界面的恶意软件进行钓鱼攻击，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“禁用按CTRL+ALT+DEL进行登录的设置”(适用于Windows2000)或“交互式登录: 无须(不需要)按 Ctrl+Alt+Del”，配置为“已禁用(停用)”。
+  - uid: CHK053
+    description: 域环境：检查是否已启用“需要域控制器身份验证以解锁工作站”策略
+    riskLevel: 低风险
+    query: |
+      function Check-DomainControllerAuthentication {
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+      
+          if ($computerSystem.DomainRole -eq 0 -or $computerSystem.DomainRole -eq 2) {
+             $result["status"]  = 0
+             $result["outputs"] = "域环境：检查是否已启用'需要域控制器身份验证以解锁工作站'策略，当前不存域环境"
+             $result | ConvertTo-Json
+             return 
+          } 
+      
+          $dcAuthPolicy = Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name "disabledomaincreds"
+      
+          if ($dcAuthPolicy."disabledomaincreds" -ne $null) {
+              if ($dcAuthPolicy."disabledomaincreds" -eq 1) {
+                  $result["status"]  = 0 # 核查合格
+                  $result["outputs"] = "域环境：检查是否已启用‘需要域控制器身份验证以解锁工作站’策略，当前已启用‘需要域控制器身份验证以解锁工作站’策略，当前值为：" + $dcAuthPolicy."disabledomaincreds"
+              } else {
+                  $result["status"]  = 1 # 核查不合格
+                  $result["outputs"] = "域环境：检查是否已启用’需要域控制器身份验证以解锁工作站‘策略，当前未启用’需要域控制器身份验证以解锁工作站‘策略，当前值为：" + $dcAuthPolicy."disabledomaincreds"
+              }
+          } else {
+              $result["status"]  = 2 # 核查不合格
+              $result["outputs"] = "域环境：检查是否已启用‘需要域控制器身份验证以解锁工作站’策略，未找到‘需要域控制器身份验证以解锁工作站’策略设置"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-DomainControllerAuthentication
+    expectedOutput: NotDomainRole|0x1
+    harm: 未启用“需要域控制器身份验证以解锁工作站”策略可能增加未经授权访问工作站的风险。
+    solution: |
+      此项仅适用于域环境。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“交互式登录: 需要(要求)域控制器身份验证以解锁(脱离)工作站”，配置为“已启用”。Windows2000中无此设置，不检查此项。
+  - uid: CHK054
+    description: 检查是否已正确配置密码最长使用期限
+    riskLevel: 低风险
+    query: |
+      function Check-PasswordMaxAge {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $MaximumPasswordAge = $content | Where-Object { $_ -match "MaximumPasswordAge" }
+          $maxAge = $MaximumPasswordAge.Split("=")[1].Trim()
+      
+          if ($maxAge -eq -1) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置密码最长使用期限，当前密码最长使用期限不应为-1，核查值为：$maxAge"
+          } elseif ($maxAge -ne $null -and $maxAge -le 90) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置密码最长使用期限，当前密码最长使用期限应小于90，核查值为：$maxAge"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置密码最长使用期限，当前密码最长使用期限不符合要求，核查值为：$maxAge"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-PasswordMaxAge
+    expectedOutput: '!=-1,<=90'
+    harm: 未正确配置密码最长使用期限可能导致密码过期管理不合理，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\密码策略”，在右边窗格中找到“密码最长存留期(使用期限)”，配置为非0值。0值表示密码永不过期。当配置为0时，检测到的实际值为-1。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\密码策略”，在右边窗格中找到“密码最长存留期(使用期限)”，配置为标准值以内的值。当配置为0时，检测到的实际值为-1。
+  - uid: CHK055
+    description: 检查是否已正确配置帐户锁定阈值
+    riskLevel: 低风险
+    query: |
+      function Check-AccountLockoutThreshold {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+          $LockoutBadCount = $content | Where-Object { $_ -match "LockoutBadCount" }
+          $threshold = $LockoutBadCount.Split("=")[1].Trim()
+      
+      
+          if ($threshold -eq 0) {
+              $result["status"]  = 1 # 核查合格
+              $result["outputs"] =  "检查是否已正确配置帐户锁定阈值，当前帐户锁定阈值应小于等于6且不应为0，核查值为：$threshold"
+          } elseif ($threshold -ne $null -and $threshold -le 6) {
+              $result["status"]  = 0 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置帐户锁定阈值，当前帐户锁定阈值应小于等于6且不应为0，核查值为：$threshold"
+          } else {
+              $result["status"]  = 1 # 核查合格
+              $result["outputs"] =  "检查是否已正确配置帐户锁定阈值，当前帐户锁定阈值应小于等于6且不应为0，核查值为：$threshold"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AccountLockoutThreshold
+    expectedOutput: '!=0,<=6'
+    harm: 未正确配置帐户锁定阈值可能导致帐户锁定策略不合理，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\帐户锁定策略”，在右边窗格中找到“帐户锁定阈值”，配置为标准值以内的值。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\帐户策略\帐户锁定策略”，在右边窗格中找到“帐户锁定阈值”，配置为非0值。配置为0表示帐户将永远不会被锁定。
+  - uid: CHK056
+    description: 检查是否已删除可远程访问的注册表路径和子路径
+    riskLevel: 低风险
+    query: |
+      function Check-RemoteRegistryPaths {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          # 获取可远程访问的注册表路径和子路径
+          $remoteRegistryPaths = Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\winreg\AllowedPaths\Machine" | ForEach-Object { $_.PSPath }
+          $remoteRegistryPaths += Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Control\SecurePipeServers\winreg\AllowedPaths" | ForEach-Object { $_.PSPath }
+      
+          # 检查是否存在任何可远程访问的注册表路径和子路径
+          if ($remoteRegistryPaths) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已删除可远程访问的注册表路径和子路径，当前可远程访问的注册表路径和子路径存在，核查值为：$remoteRegistryPaths"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已删除可远程访问的注册表路径和子路径，当前可远程访问的注册表路径和子路径不存在"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-RemoteRegistryPaths
+    expectedOutput: 不存在
+    harm: 可远程访问的注册表路径和子路径存在可能导致系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“网络访问: 可远程访问的注册表路径和子路径”，配置为空。Windows2000和WindowsXP没有此设置，不需配置。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“网络访问: 可远程访问的注册表路径”，配置为空。Windows2000没有此设置，不需配置。
+  - uid: CHK057
+    description: 检查是否已限制匿名用户连接
+    riskLevel: 低风险
+    query: |
+      function Check-RemoteRegistryPaths {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $checkPoint1 = [int](Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\" -Name "RestrictAnonymousSAM").RestrictAnonymousSAM
+          $checkPoint2 = [int](Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\" -Name "RestrictAnonymous").RestrictAnonymous
+      
+          if ($checkPoint1 -eq 1 -and $checkPoint2 -eq 1) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已限制匿名用户连接，当前已禁止SAM帐户和共享的匿名枚举，已禁止SAM帐户的匿名枚举，核查值为：$checkPoint1，$checkPoint2"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已限制匿名用户连接，当前未禁止SAM帐户和共享的匿名枚举或未禁止SAM帐户的匿名枚举，核查值为：$checkPoint1，$checkPoint2"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-RemoteRegistryPaths
+    expectedOutput: =1
+    harm: 可远程访问的注册表路径和子路径未删除可能导致系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“网络访问: 不允许 SAM 帐户和共享的匿名枚举”，配置为“启用”(在Windows2000下，将“对匿名连接的额外限制”配置为“不允许枚举SAM账号和共享”)。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“网络访问: 不允许 SAM 帐户的匿名枚举”，配置为“启用”(在Windows2000下，无此设置，不检查此项)。
+  - uid: CHK058
+    description: 检查是否已删除可匿名访问的共享和命名管道
+    riskLevel: 低风险
+    query: |
+      function Check-AnonAccess {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          # 获取可匿名访问的命名管道和共享
+          $anonPipes = Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\NullSessionPipes" | Where-Object { $_.PSChildName -match ".+" }
+          $anonShares = Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\NullSessionShares" | Where-Object { $_.PSChildName -match ".+" }
+      
+          # 检查是否存在任何可匿名访问的命名管道和共享
+          if ($anonPipes -or $anonShares) {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已删除可匿名访问的共享和命名管道，当前可匿名访问的共享和命名管道存在，核查结果： `n命名管道: $anonPipes `n共享: $anonShares"
+          } else {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已删除可匿名访问的共享和命名管道，当前可匿名访问的共享和命名管道不存在"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AnonAccess
+    expectedOutput: 不存在
+    harm: 可匿名访问的共享和命名管道可能导致系统遭受攻击的风险。
+    solution: |
+      此项不适用于域控服务器。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“网络访问: 可匿名访问的命名管道”，配置为空。Windows2000没有此设置，不检查此项。
+      此项不适用于域控服务器。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“网络访问: 可匿名访问的共享”，配置为空。Windows2000没有此设置，不检查此项。
+  - uid: CHK059
+    description: 检查是否已正确配置系统日志
+    riskLevel: 低风险
+    query: |
+      function Check-SystemLog {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          # 获取系统日志配置
+          $logSizeAction = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\System").Retention
+          $logFileSize = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\System").MaxSize
+      
+          # 检查系统日志配置
+          if ($logSizeAction -eq 0 -and $logFileSize -ge 0x800000) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置系统日志，当前系统日志文件达到最大大小时的动作的序号为：$logSizeAction，应用系统文件最大大小为：$logFileSize"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置系统日志，当前系统日志文件达到最大大小时的动作的序号或应用系统文件最大大小配置不正确，核查值为：`n动作序号: $logSizeAction `n文件大小: $logFileSize"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SystemLog
+    expectedOutput: =0x0，>=0x800000
+    harm: 系统日志配置不正确可能导致系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“eventvwr.msc”打开事件查看器，浏览到路径“事件查看器(\Windows日志)\ 系统(日志)”，右键点击“系统(日志)”，打开其属性对话框，切换到“常规”选项卡，配置“日志文件达到最大大小时”为“按需要改写(覆盖)事件”。
+      打开命令提示符，运行命令“eventvwr.msc”打开事件查看器，浏览到路径“事件查看器(\Windows日志)\ 系统(日志)”，右键点击“系统(日志)”，打开其属性对话框，切换到“常规”选项卡，配置“日志文件最大大小”为不小于标准值(注意：标准值为16进制表示)的值。
+  - uid: CHK060
+    description: 检查是否已正确配置审核(日志记录)策略
+    riskLevel: 低风险
+    query: |
+      function Check-AuditPolicy {
+          $seceditOutput = secedit /export /cfg config.txt
+          $content = Get-Content -Path config.txt
+      
+          $auditPolicy = @{
+              "AuditSystemEvents"        = $null
+              "AuditLogonEvents"         = $null
+              "AuditObjectAccess"        = $null
+              "AuditPrivilegeUse"        = $null
+              "AuditPolicyChange"        = $null
+              "AuditAccountManage"       = $null
+              "AuditProcessTracking"     = $null
+              "AuditDSAccess"            = $null
+              "AuditAccountLogon"        = $null
+          }
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          foreach ($line in $content) {
+              foreach ($auditCheckPoint in $auditPolicy.Keys) {
+                  if ($line -match $auditCheckPoint) {
+                      $auditPolicy[$auditCheckPoint] = $line.Split("=")[1].Trim()
+                      break
+                  }
+              }
+          }
+      
+          $checkPoints = @{
+              "AuditSystemEvents"        = 3
+              "AuditLogonEvents"         = 3
+              "AuditObjectAccess"        = 3
+              "AuditPrivilegeUse"        = 3
+              "AuditPolicyChange"        = 3
+              "AuditAccountManage"       = 3
+              "AuditProcessTracking"     = 3
+              "AuditDSAccess"            = 3
+              "AuditAccountLogon"        = 3
+          }
+      
+          $checkPointsPassed = $true
+          $checkPointsFailed = @()
+      
+          foreach ($checkPoint in $checkPoints.Keys) {
+              if ($auditPolicy[$checkPoint] -ne $checkPoints[$checkPoint]) {
+                  $checkPointsPassed = $false
+                  $checkPointsFailed += $checkPoint
+              }
+          }
+      
+          if ($checkPointsPassed) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置审核(日志记录)策略，当前审核策略均符合要求"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置审核(日志记录)策略，当前审核策略不符合要求，不合格检查点: " + ($checkPointsFailed -join ", ")
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-AuditPolicy
+    expectedOutput: =3
+    harm: 未正确配置审核(日志记录)策略可能导致安全事件无法追踪，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核特权使用”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核系统事件”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核进程跟踪”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核策略更改”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核对象访问”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核目录服务访问”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核帐户管理”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核帐户登录事件”，勾选“成功”和“失败”。
+      打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\审核策略”，在右边窗格中找到“审核登录事件”，勾选“成功”和“失败”。
+  - uid: CHK061
+    description: 检查是否已正确配置应用程序日志
+    riskLevel: 低风险
+    query: |
+      function Check-ApplicationLog {
+          $maxLogSize = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" -Name "MaxSize").MaxSize
+          $actionOnFull = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" -Name "Retention").Retention
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          if ($maxLogSize -ge 0x800000 -and $actionOnFull -eq 0x0) {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已正确配置应用程序日志，当前应用程序日志文件最大大小为：$($maxLogSize.ToString('X')). 应用程序日志文件达到最大大小时的动作的序号为：$($actionOnFull.ToString('X'))"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已正确配置应用程序日志，当前应用程序日志文件最大大小不满足要求. 核查值为：$($maxLogSize.ToString('X')). 应用程序日志文件达到最大大小时的动作的序号不满足要求. 核查值为：$($actionOnFull.ToString('X'))"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ApplicationLog
+    expectedOutput: '>=0x800000, =0x0'
+    harm: 未正确配置应用程序日志可能导致日志文件过小或无法记录足够的日志信息，影响系统监控和故障排查。
+    solution: |
+      打开命令提示符，运行命令“eventvwr.msc”打开事件查看器，浏览到路径“事件查看器(\Windows日志)\应用程序(日志)”，右键点击“应用程序(日志)”，打开其属性对话框，切换到“常规”选项卡，配置“日志文件最大大小”为不小于标准值(注意：标准值为16进制表示)的值。
+      打开命令提示符，运行命令“eventvwr.msc”打开事件查看器，浏览到路径“事件查看器(\Windows日志)\应用程序(日志)”，右键点击“应用程序(日志)”，打开其属性对话框，切换到“常规”选项卡，配置“日志文件达到最大大小时”为“按需要改写(覆盖)事件”。
+  - uid: chk062
+    description: 检查是否已正确配置安全日志
+    riskLevel: 低风险
+    query: |
+      function Check-ApplicationLog {
+          try {
+              $maxSize = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Eventlog\Security" -Name "MaxSize").MaxSize
+              $maxSizeAction = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Eventlog\Security" -Name "Retention").Retention
+      
+              $result = @{
+                  "status"  = $null
+                  "outputs" = $null
+              }
+      
+              if ($maxSizeAction -eq 0 -and $maxSize -ge 0x800000) {
+                  $result["status"]  = 0 # 核查合格
+                  $result["outputs"] = "检查是否已正确配置安全日志，当前安全日志文件达到最大大小时的动作的序号等于 0x0，核查值为：$maxSizeAction，安全日志文件最大大小大于等于 0x800000，核查值为：$maxSize"
+              } else {
+                  $result["status"]  = 1 # 核查不合格
+                  $result["outputs"] = "检查是否已正确配置安全日志，当前安全日志文件达到最大大小时的动作的序号不等于 0x0，核查值为：$maxSizeAction，安全日志文件最大大小小于 0x800000，核查值为：$maxSize"
+              }
+      
+              $result | ConvertTo-Json
+          } catch {
+              $errorResult = @{
+                  "status"  = 2 # 错误处理
+                  "outputs" = "发生错误：$($_.Exception.Message)"
+              }
+              $errorResult | ConvertTo-Json
+          }
+      }
+      
+      # 调用核查函数
+      Check-ApplicationLog
+    expectedOutput: '>=0x800000, =0x0'
+    harm: 未正确配置应用程序日志可能导致无法有效监控系统的安全事件，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“eventvwr.msc”打开事件查看器，浏览到路径“事件查看器(\Windows日志)\安全(日志)”，右键点击“安全(日志)”，打开其属性对话框，切换到“常规”选项卡，配置“日志文件达到最大大小时”为“按需要改写(覆盖)事件”。
+      打开命令提示符，运行命令“eventvwr.msc”打开事件查看器，浏览到路径“事件查看器(\Windows日志)\安全(日志)”，右键点击“安全(日志)”，打开其属性对话框，切换到“常规”选项卡，配置“日志文件最大大小”为不小于标准值(注意：标准值为16进制表示)的值。
+  - uid: CHK063
+    description: 检查是否已启用并正确配置SYN攻击保护
+    riskLevel: 低风险
+    query: |
+      function Check-SynAttackProtection {
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $SynAttackProtect = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'SynAttackProtect').SynAttackProtect
+          $SynAttackProtect = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'TcpMaxConnectResponseRetransmissions').TcpMaxConnectResponseRetransmissions
+          $TcpMaxHalfOpenRetried = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'TcpMaxHalfOpenRetried').TcpMaxHalfOpenRetried
+          $TcpMaxHalfOpen = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'TcpMaxHalfOpen').TcpMaxHalfOpen
+          $TcpMaxPortsExhausted = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name 'TcpMaxPortsExhausted').TcpMaxPortsExhausted
+      
+          if ($SynAttackProtect -match "(1|2)" -and $TcpMaxConnectResponseRetransmissions -eq "0x2" -and $TcpMaxPortsExhausted -eq "0x5" -and $TcpMaxHalfOpenRetried -eq "0x0190" -and $TcpMaxHalfOpen -eq "0x01f4") {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = "检查是否已启用并正确配置SYN攻击保护，当前SYN攻击保护已启用并正确配置，SYN攻击保护核查值为: $SynAttackProtect，$SynAttackProtect，$TcpMaxHalfOpenRetried，$TcpMaxHalfOpen，$TcpMaxPortsExhausted"
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = "检查是否已启用并正确配置SYN攻击保护，当前SYN攻击保护未启用或配置不正确，当前SYN攻击保护核查为: $SynAttackProtect，$SynAttackProtect，$TcpMaxHalfOpenRetried，$TcpMaxHalfOpen，$TcpMaxPortsExhausted"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SynAttackProtection
+    expectedOutput: (1|2),=0x2,=0x5,=0x0190,=0x01f4
+    harm: 未启用或正确配置SYN攻击保护可能导致系统遭受SYN洪水攻击，增加系统遭受攻击的风险。
+    solution: |
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“TcpMaxPortsExhausted”、类型为DWORD、数据为标准值(注意：标准值为16进制表示)的数值，若已存在则修改其数据。此数据的有效值为在0-ffff(16进制)。
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“TcpMaxConnectResponseRetransmissions”、类型为DWORD、数据为标准值的数值，若已存在则修改其数据。此数据的有效值为0-255。
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“TcpMaxHalfOpenRetried”、类型为DWORD、数据为标准值(注意：标准值为16进制表示)的数值，若已存在则修改其数据。此数据的有效值为在50-ffff(16进制)。
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“TcpMaxHalfOpen”、类型为DWORD、数据为标准值(注意：标准值为16进制表示)的数值，若已存在则修改其数据。此数据的有效值为在64-ffff(16进制)。
+      打开命令提示符，运行命令“regedit”打开注册表编辑器，浏览到路径“HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters”，添加名称为“SynAttackProtect”、类型为DWORD、数据为标准值(注意：标准值为16进制表示)的数值，若已存在则修改其数据。此数据的有效值为0-2。
+      当SynAttackProtect值（如无特别说明，本文提到的注册表键值都为十六进制）为0或不设置时，系统不受SynAttackProtect保护。
+      当SynAttackProtect值为1时，系统通过减少重传次数和延迟未连接时路由缓冲项（route cache entry）防范SYN攻击。
+      当SynAttackProtect值为2时（Microsoft推荐使用此值），系统不仅使用backlog队列，还使用附加的半连接指示，以此来处理更多的SYN连接，使用此键值时，tcp/ip的TCPInitialRTT、window size和可滑动窗囗将被禁止。"
+  - uid: CHK064
+    description: 检查是否已启用并正确配置Windows网络时间同步服务(NTP)
+    riskLevel: 低风险
+    query: |
+      function Check-W32TimeService {
+          $w32TimeService = Get-Service -Name "W32Time"
+          $w32TimeStatus = $w32TimeService.Status
+          $w32TimeStartType = $w32TimeService.StartType
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $ntpServer = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -Name "NtpServer"
+      
+          if ($w32TimeStatus -eq "Running" -and $w32TimeStartType -eq "Auto" -and $ntpServer -match "time.windows.com|time.nist.gov") {
+              $result["status"]  = 0 # 核查合格
+              $result["outputs"] = " 检查是否已启用并正确配置Windows网络时间同步服务(NTP)，当前Windows Time(W32Time)服务已启用并正确配置，当前状态为：$w32TimeStatus, 启动类型为：$w32TimeStartType, 时间服务器地址为：" + $ntpServer.NtpServer
+          } else {
+              $result["status"]  = 1 # 核查不合格
+              $result["outputs"] = " 检查是否已启用并正确配置Windows网络时间同步服务(NTP)，当前Windows Time(W32Time)服务未启用或配置不正确，当前状态为：$w32TimeStatus, 启动类型为：$w32TimeStartType, 时间服务器地址为：" + $ntpServer.NtpServer
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-W32TimeService
+    expectedOutput: =Running,匹配time.windows.com|time.nist.gov
+    harm: 未启用并正确配置Windows网络时间同步服务(NTP)可能导致系统时间不准确，影响系统的时间同步和安全性。
+    solution: |
+      打开命令提示符，运行命令“services.msc”打开服务面板，在右边窗格中找到名称为“Windows Time”的服务，点击右键，“启动”此服务。
+      打开命令提示符，运行命令“timedate.cpl”打开“时间和日期属性”对话框，切换到“Internet时间”选项卡，勾选“与Internet时间服务器同步”，配置服务器地址为标准值之一。
+      打开命令提示符，运行命令“services.msc”打开服务面板，在右边窗格中找到名称为“Windows Time”的服务，点击右键，打开其属性对话框，配置“启动类型”为“自动”。
+  - uid: CHK065
+    description: 域环境：检查是否已正确配置域环境下安全通道数据的安全设置
+    riskLevel: 低风险
+    query: |
+      function Check-SecurityChannelSettings {
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          $computerSystem = Get-WmiObject -Class Win32_ComputerSystem
+      
+          if ($computerSystem.DomainRole -eq 0 -or $computerSystem.DomainRole -eq 2 ) {
+             $result["status"]  = 0
+             $result["outputs"] = "域环境：检查是否已启用'需要域控制器身份验证以解锁工作站'策略，当前环境不为域成员"
+             $result | ConvertTo-Json
+             return 
+          } 
+      
+          $RequireSignOrSeal = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -Name "RequireSignOrSeal").RequireSignOrSeal
+          $SignSecureChannel = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -Name "SignSecureChannel").SignSecureChannel
+          $RequireSignOrSeal = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters" -Name "RequireSignOrSeal").RequireSignOrSeal
+      
+          # 核查检查点1：检查是否已启用'域环境下对安全通道数据进行数字签名'策略
+          if ($SignSecureChannel -eq "0x1") {
+              $result["status"] = 0
+              $result["outputs"] += "域环境：检查是否已正确配置域环境下安全通道数据的安全设置，检查是否已启用'域环境下对安全通道数据进行数字签名'策略 (合格)，核查值为：$SignSecureChannel"
+          } else {
+              $result["status"] = 1
+              $result["outputs"] += "域环境：检查是否已正确配置域环境下安全通道数据的安全设置，检查是否已启用'域环境下对安全通道数据进行数字签名'策略 (不合格)，核查值为：$SignSecureChannel"
+          }
+      
+          # 核查检查点2：检查是否已启用'域环境下对安全通道数据进行数字加密'策略
+          if ($RequireSignOrSeal -eq "0x1") {
+              $result["outputs"] += "，检查是否已启用'域环境下对安全通道数据进行数字加密'策略 (合格)，核查值为：$RequireSignOrSeal"
+          } else {
+              $result["outputs"] += "，检查是否已启用'域环境下对安全通道数据进行数字加密'策略 (不合格)，核查值为：$RequireSignOrSeal"
+          }
+      
+          # 核查检查点3：检查是否已启用'域环境下对安全通道数据进行数字加密或数字签名'策略
+          if ($RequireSignOrSeal -eq "0x1") {
+              $result["outputs"] += "，检查是否已启用'域环境下对安全通道数据进行数字加密或数字签名'策略 (合格)，核查值为：$RequireSignOrSeal"
+          } else {
+              $result["outputs"] += "，检查是否已启用'域环境下对安全通道数据进行数字加密或数字签名'策略 (不合格)，核查值为：$RequireSignOrSeal"
+          }
+      
+          $result | ConvertTo-Json
+      }
+      Check-SecurityChannelSettings
+    expectedOutput: NotDomainMember|0x1
+    harm: 未正确配置域环境下安全通道数据的安全设置可能导致安全通信中的数据完整性和机密性问题。
+    solution: |
+      此项仅适用于域成员。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“域成员(安全通道):对安全通道数据进行数字签名(如果可能)”，配置为“已启用”。
+      此项仅适用于域成员。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“域成员(安全通道):对安全通道数据进行数字加密(如果可能)”，配置为“已启用”。
+      此项仅适用于域成员。打开命令提示符，运行命令“gpedit.msc”打开组策略编辑器，浏览到路径“本地计算机策略\计算机配置\Windows设置\安全设置\本地策略\安全选项”，在右边窗格中找到“域成员(安全通道):对安全通道数据进行数字加密或数字签名(始终)”，配置为“已启用”。
+  - uid: CHK066
+    description: 检查是否已启用并正确配置屏幕保护程序
+    riskLevel: 低风险
+    query: |
+      function Check-ScreensaverSettings {
+          $ScreenSaveTimeOut = (Get-ItemProperty -Path "HKCU:\Control Panel\Desktop").ScreenSaveTimeOut
+          $ScreenSaverIsSecure = (Get-ItemProperty -Path "HKCU:\Control Panel\Desktop").ScreenSaverIsSecure
+          $SCRNSAVE = (Get-ItemProperty -Path "HKCU:\Control Panel\Desktop")."SCRNSAVE.EXE"
+      
+          $result = @{
+              "status"  = $null
+              "outputs" = $null
+          }
+      
+          # 核查检查点1：检查屏幕保护程序等待时间
+          if ([int]$ScreenSaveTimeOut -le 300) {
+              $result["status"] = 0
+              $result["outputs"] = "检查是否已启用并正确配置屏幕保护程序，检查屏幕保护程序等待时间 (合格)，核查值为：$ScreenSaveTimeOut"
+          } else {
+              $result["outputs"] = "检查是否已启用并正确配置屏幕保护程序，检查屏幕保护程序等待时间 (不合格)，核查值为：$ScreenSaveTimeOut"
+              $result["status"] = 1
+          }
+      
+          # 核查检查点2：检查是否已启用屏幕保护程序
+          if ($SCRNSAVE -ne $null) {
+              $result["outputs"] += "，检查是否已启用屏幕保护程序 (合格)，核查值为：$SCRNSAVE"
+          } else {
+              $result["outputs"] += "，检查是否已启用屏幕保护程序 (不合格)，当前未配置保护程序"
+              $result["status"] = 1
+          }
+      
+          # 核查检查点3：检查是否已启用'在恢复时显示登录界面'
+          if ($ScreenSaverIsSecure -eq "1") {
+              $result["outputs"] += "，检查是否已启用'在恢复时显示登录界面'(合格)，核查值为：$ScreenSaverIsSecure"
+          } else {
+              $result["outputs"] += "，检查是否已启用'在恢复时显示登录界面'(不合格)，核查值为：$ScreenSaverIsSecure"
+              $result["status"] = 1
+          }
+      
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-ScreensaverSettings
+    expectedOutput: <=300,不配置,=1
+    harm: 未启用或未正确配置屏幕保护程序可能导致未经授权的访问和信息泄露的风险。
+    solution: "在桌面空白处点击右键，打开属性(个性化)对话框(面板)，切换到“屏幕保护程序”选项卡(面板)，选择一个屏保程序，将等待时间配置为不大于标准值(注意：标准值是以秒为单位的)的值，且勾选“在恢复时需要密码保护(显示登录屏幕)”。\r
+    \nWindows Server 2008及Windows Server 2012在控制面板->显示->更改屏幕保护程序。选择一个屏幕保护程序，将等待时间配置为不大于标准值(注意：标准值是以秒为单位的)的值，且勾选“在恢复时显示登录屏幕”。"

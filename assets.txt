@@ -1,0 +1,2 @@
+172.17.15.204 administrator test123 winrm 5985
+101.34.19.21 ubuntu test123 ssh 22

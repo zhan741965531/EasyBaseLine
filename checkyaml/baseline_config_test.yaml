@@ -1,0 +1,43 @@
+baseline_check_items:
+- uid: CHK020
+  description: 查看文件系统格式
+  riskLevel: low
+  query: |
+    function Check-FileSystem {
+        try {
+            # 获取操作系统版本
+            $osVersion = (Get-WmiObject -Class Win32_OperatingSystem).Caption | out-string
+    
+            # 获取所有逻辑磁盘
+            $logicalDisks = Get-WmiObject -Class Win32_LogicalDisk
+    
+            # 构建结果对象
+            $result = @{
+                "outputs" = "核查内容: 所有逻辑磁盘均为NTFS格式, 操作系统版本: $osVersion";
+                "status"  = 0;
+            }
+    
+            # 检查每个逻辑磁盘的文件系统格式
+            foreach ($disk in $logicalDisks) {
+                if ($disk.FileSystem -ne "NTFS") {
+                    $result["status"] = 1 # 核查失败
+                    $result["outputs"] = "核查内容: 使用非NTFS格式的逻辑磁盘：$($disk.DeviceID), 操作系统版本: $osVersion"
+                    break
+                }
+            }
+        } catch {
+            $result["status"] = 1 # 核查失败
+            $result["outputs"] = "核查内容: 查询过程中出现错误，错误信息：$_, 操作系统版本: $osVersion"
+        }
+    
+        # 生成JSON输出
+        echo "dsd"
+        $result | ConvertTo-Json -Compress
+        echo "11"
+    }
+    
+    # 调用核查函数
+    Check-FileSystem
+  expectedOutput: "使用的文件系统为NTFS格式"
+  harm: 使用非NTFS文件系统可能导致数据丢失、文件权限和安全功能缺失。
+  solution: 将非NTFS文件系统的逻辑磁盘转换为NTFS格式，以提高数据安全性。

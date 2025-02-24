@@ -1,0 +1,81 @@
+basic_info:
+  check_id: A0003
+  check_name: windows应急响应检查
+  check_type: 安全审计
+  check_description: |
+    Windows安全应急响应检查，用于主机被渗透后安全分析。
+  check_executor: powershell
+  operating_system:
+    - Windows Server 2016
+    - Windows Server 2019
+  creation_date: 2023-08-28
+  last_modified_date: 2023-08-28
+  check_version: 1.0
+  additional_information: |
+    null
+baseline_check_items:
+  - uid: CHK001
+    description: 检查是否存在可疑账户和检查是否有新添加的账户
+    riskLevel: high
+    query: |
+      function Check-SuspiciousNewAccounts {
+          $event_ids = "4720", "4724", "4782" # event ids related to account creation, password reset and password hash access
+          $date_limit = (Get-Date).AddDays(-7) # 7 days in the past
+          $events = Get-WinEvent -FilterHashtable @{ LogName='Security'; Id=$event_ids; StartTime=$date_limit }
+          $result = @{
+              "status" = $null
+              "outputs" = $null
+          }
+          if ($events) {
+              $result["status"] = 1
+              $suspicious_accounts = foreach ($event in $events) {
+                  $xml = [xml]$event.ToXml()
+                  $username = $xml.Event.EventData.Data | Where-Object { $_.Name -eq "TargetUserName" } | Select-Object -ExpandProperty "#text"
+                  $account_detail = @{
+                      "Username" = $username
+                      "CreationTime" = $event.TimeCreated
+                      "EventDescription" = $event.Message
+                  }
+                  $account_detail
+              }
+              $result["outputs"] = "检查是否存在可疑账户和新添加的账户，发现以下可疑或新添加的账户：" + ($suspicious_accounts | ConvertTo-Json -Compress)
+          } else {
+              $result["status"] = 0
+              $result["outputs"] = "检查是否存在可疑账户和新添加的账户，当前没有发现可疑或新添加的账户。"
+          }
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-SuspiciousNewAccounts
+    expectedOutput: 不存在可疑账户和新添加的账户
+    harm: 存在可疑账户和新添加的账户可能导致未经授权的访问，增加系统遭受攻击的风险。
+    solution: |
+      如果发现有可疑账户或新添加的账户，应立即联系相关服务器管理员进行确认。如果确认这些账户是无权限的账户，应立即禁用或删除这些账户。
+  - uid: CHK002
+    description: 检查是否存在远程连接或可疑连接
+    riskLevel: high
+    query: |
+      function Check-RemoteAndSuspiciousConnections {
+          $connections = netstat -ano | Select-String 'ESTABLISHED'
+          $result = @{
+              "status" = $null
+              "outputs" = $null
+          }
+          if ($connections) {
+              $result["status"] = 1
+              $result["outputs"] = "检查是否存在远程连接或可疑连接，发现以下连接：" + ($connections -join ", ")
+          } else {
+              $result["status"] = 0
+              $result["outputs"] = "检查是否存在远程连接或可疑连接，当前没有发现远程连接或可疑连接。"
+          }
+          $result | ConvertTo-Json
+      }
+      
+      # 调用核查函数
+      Check-RemoteAndSuspiciousConnections
+    expectedOutput: 不存在远程连接或可疑连接
+    harm: 存在远程连接或可疑连接可能导致未经授权的访问，增加系统遭受攻击的风险。
+    solution: |
+      如果发现有远程连接或可疑连接，应立即联系相关服务器管理员进行确认。如果确认该连接是无权限的连接，应立即断开该连接。
+

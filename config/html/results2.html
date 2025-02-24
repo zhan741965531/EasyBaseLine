@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Meta & Title -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>检查结果</title>
+
+  <!-- Styles -->
+  <style>
+    /* Global Styles */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    /* Container Styles */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+    }
+
+    /* Title Styles */
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+
+    /* IP Container Styles */
+    .ip-container {
+      margin-bottom: 20px;
+      cursor: pointer;
+    }
+
+    /* IP Title Styles */
+    .ip-container h2 {
+      font-size: 18px;
+      margin: 0;
+      padding: 10px;
+      background-color: #007bff;
+      color: #fff;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ip-container h2 span {
+      font-size: 20px;
+    }
+
+    /* Check Styles */
+    .check {
+      border: 1px solid #ccc;
+      padding: 20px;
+      margin: 10px 0;
+      border-radius: 5px;
+      display: none; /* Initial state is hidden */
+    }
+
+    /* Result Title Styles */
+    .result-title {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    /* List Styles */
+    ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      margin-bottom: 5px;
+    }
+
+    /* Show Check */
+    .check.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<!-- Main Container -->
+<div class="container">
+  <h1>检查结果</h1>
+
+  <!-- IP Containers -->
+  {{range .}}
+  <div class="ip-container">
+    <h2>主机IP: {{.HostIP}} <span>{{.BasicInfo.CheckName}}</span></h2>
+    <div class="check">
+      <!-- Check Results -->
+      {{range .CheckResults}}
+      <div class="result">
+        <div class="result-title">UID: {{.UID}}</div>
+        <p>Description: {{.Description}}</p>
+        <p>Risk Level: {{.RiskLevel}}</p>
+        <p>Status: {{.Status}}</p>
+        <p>Outputs: {{.OutPuts}}</p>
+        <p>Harm: {{.Harm}}</p>
+        <p>Solution: {{.Solution}}</p>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<!-- JavaScript -->
+<script>
+  // Handle click for each IP Container
+  const ipContainers = document.querySelectorAll('.ip-container');
+
+  ipContainers.forEach(ipContainer => {
+    ipContainer.addEventListener('click', () => {
+      const checkDiv = ipContainer.querySelector('.check');
+      checkDiv.classList.toggle('show');
+    });
+  });
+</script>
+</body>
+</html>

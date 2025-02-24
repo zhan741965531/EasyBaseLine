@@ -1,0 +1,1158 @@
+baseline_check_items:
+  - uid: CHK001
+    description: 检查设备密码复杂度策略
+    riskLevel: 7
+    query: |-
+      #!/bin/bash
+      
+      # Define the files to check based on the Linux distribution
+      declare -A files_to_check=(
+        ["Redhat"]="/etc/pam.d/system-auth"
+        ["Suse9"]="/etc/pam.d/passwd"
+        ["Suse10"]="/etc/pam.d/common-password"
+        ["Suse11"]="/etc/pam.d/common-password"
+      )
+      
+      # Define the expected outputs
+      declare -a expected_outputs=("ucredit=-1" "lcredit=-1" "dcredit=-1" "ocredit=-1")
+      
+      # Initialize the status to 0 (check passed)
+      status=0
+      output=""
+      pass_output=""
+      fail_output=""
+      
+      # Check each file
+      for file in "${!files_to_check[@]}"; do
+        if [[ -f "${files_to_check[$file]}" ]]; then
+          for expected_output in "${expected_outputs[@]}"; do
+            content=$(grep "password  requisite pam_cracklib.so" "${files_to_check[$file]}")
+            if [[ "$content" != *"$expected_output"* ]]; then
+              status=1
+              fail_output+="$expected_output 在 ${files_to_check[$file]} 文件中缺失. "
+            else
+              pass_output+="$expected_output 在 ${files_to_check[$file]} 文件中存在. "
+            fi
+          done
+        else
+          status=1
+          fail_output+="文件 ${files_to_check[$file]} 不存在. "
+        fi
+      done
+      
+      # Combine pass and fail outputs
+      output="通过的检查: $pass_output 失败的检查: $fail_output"
+      
+      # Output the result in JSON format
+      echo "{\"output\":\"$output\",\"status\":$status}"
+    expectedOutput: -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
+    harm:
+      检查点1:检查密码复杂度策略中设置的特殊字符个数,该核查的判断值（是否通过）：-1;检查点1:检查密码复杂度策略中设置的大写字母个数,该核查的判断值（是否通过）：-1;检查点1:检查密码复杂度策略中设置的数字个数,该核查的判断值（是否通过）：-1;检查点2:检查密码复杂度策略中设置的特殊字符个数,该核查的判断值（是否通过）：-1;检查点2:检查密码复杂度策略中设置的数字个数,该核查的判断值（是否通过）：-1;检查点2:检查密码复杂度策略中设置的小写字母个数,该核查的判断值（是否通过）：-1;检查点3:检查密码复杂度策略中设置的特殊字符个数,该核查的判断值（是否通过）：-1;检查点3:检查密码复杂度策略中设置的大写字母个数,该核查的判断值（是否通过）：-1;检查点3:检查密码复杂度策略中设置的小写字母个数,该核查的判断值（是否通过）：-1;检查点4:检查密码复杂度策略中设置的大写字母个数,该核查的判断值（是否通过）：-1;检查点4:检查密码复杂度策略中设置的数字个数,该核查的判断值（是否通过）：-1;检查点4:检查密码复杂度策略中设置的小写字母个数,该核查的判断值（是否通过）：-1;
+    solution: "Redhat系统：修改/etc/pam.d/system-auth文件,\r\nSuse9：修改/etc/pam.d/passwd文件，\r
+    \nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r\n在ucredit=-1 lcredit=-1 dcredit=-1
+    ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\n例如：password\
+    \  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数,Redhat系统：修改/etc/pam.d/system-auth文件,\r
+    \nSuse9：修改/etc/pam.d/passwd文件，\r\nSuse10,Suse11：修改/etc/pam.d/common-password文件，\r
+    \n在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。\r\
+    \n例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1\r\n\
+    注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数"
+  - uid: CHK002
+    description: 检查是否设置口令生存周期
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: ok
+    harm: 检查点1:检查口令生存周期,该核查的判断值（是否通过）：ok;
+    solution: 在文件/etc/login.defs中设置 PASS_MAX_DAYS 不大于标准值,PASS_MAX_DAYS   90，如果该文件不存在，则创建并按照要求进行编辑
+  - uid: CHK003
+    description: 检查口令最小长度
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 6,6
+    harm:
+      检查点1:在/etc/pam.d/system-auth中设置口令最小长度,该核查的判断值（是否通过）：6;检查点2:在/etc/login.defs中设置口令最小长度,该核查的判断值（是否通过）：6;
+    solution: "在配置文件/etc/pam.d/system-auth中设置口令最小长度\r\n在password    required      pam_cracklib.so后添加minlen=6,在文件/etc/login.defs中设置
+    PASS_MIN_LEN 不小于标准值"
+  - uid: CHK004
+    description: 检查是否设置口令更改最小间隔天数
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '6'
+    harm: 检查点1:检查口令更改最小间隔天数,该核查的判断值（是否通过）：6;
+    solution: 在文件/etc/login.defs中设置 PASS_MIN_DAYS 不小于标准值
+  - uid: CHK005
+    description: 检查是否存在空口令账号
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/
+    harm: 检查点1:是否存在空口令账号,该核查的判断值（是否通过）：/.+/;
+    solution: 按照密码设置策略设置非空密码 命令： passwd [OPTION...] <accountName>
+  - uid: CHK006
+    description: 检查是否设置口令过期前警告天数
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '30'
+    harm: 检查点1:检查口令过期前警告天数,该核查的判断值（是否通过）：30;
+    solution: 在文件/etc/login.defs中设置 PASS_WARN_AGE 不小于标准值
+  - uid: CHK007
+    description: 检查是否设置除root之外UID为0的用户
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/
+    harm: 检查点1:检查是否存在除root之外UID为0的用户,该核查的判断值（是否通过）：/.+/;
+    solution: 文件/etc/passwd中除root所在行外所有行第二个与第三个冒号之间UID不应设置为0
+  - uid: CHK008
+    description: 检查用户目录缺省访问权限设置
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '27'
+    harm: 检查点1:检查用户目录缺省访问权限设置,该核查的判断值（是否通过）：27;
+    solution: "参考配置操作：\r\n(1) 设置用户目录默认权限，执行命令vi /etc/login.defs，编辑文件；\r\n(2) 在文件中设置umask
+    027或UMASK 027，将缺省访问权限设置为750。，如果文件中含有umask参数，则需要在最前面设置该参数"
+  - uid: CHK009
+    description: 检查重要目录或文件权限设置
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 750,750,600,750,750,600,600,644,750,600,644,750,750,644,750,750
+    harm:
+      检查点1:/etc/rc.d/init.d/文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/tmp文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/xinetd.conf文件权限是否符合规范,该核查的判断值（是否通过）：600;检查点1:/etc/rc5.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/rc4.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/security目录权限是否符合规范,该核查的判断值（是否通过）：600;检查点1:/etc/shadow文件权限是否符合规范,该核查的判断值（是否通过）：600;检查点1:/etc/passwd文件权限是否符合规范,该核查的判断值（是否通过）：644;检查点1:/etc/rc3.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:检查系统引导器配置文件权限,该核查的判断值（是否通过）：600;检查点1:/etc/services文件权限是否符合规范,该核查的判断值（是否通过）：644;检查点1:/etc/rc6.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/rc1.d/文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/group文件权限是否符合规范,该核查的判断值（是否通过）：644;检查点1:/etc/rc0.d文件权限是否符合规范,该核查的判断值（是否通过）：750;检查点1:/etc/rc2.d文件权限是否符合规范,该核查的判断值（是否通过）：750;
+    solution: "chmod 750 /etc/rc.d/init.d,chmod 750 /tmp,chmod 600 /etc/xinetd.conf\r
+    \n补充说明：低版本的Linux系统采用inetd.conf配置文件，执行命令:chmod 600 /etc/inetd.conf,chmod 750 /etc/rc5.d,chmod
+    750 /etc/rc4.d,chmod 600 /etc/security,应将权限配置为600以下，例如：chmod 400 /etc/shadow,chmod
+    644 /etc/passwd,chmod 750 /etc/rc3.d,如果/etc/grub.conf文件存在，且非链接文件，则执行chmod 600
+    /etc/grub.conf;\r\n如果/boot/grub/grub.conf文件存在，则执行chmod 600 /boot/grub/grub.conf;\r
+    \n如果/etc/lilo.conf文件存在，则执行chmod 600 /etc/lilo.conf;\r\n如果/etc/grub2.cfg文件存在，且非链接文件，则执行chmod
+    600 /etc/grub2.cfg;\r\n如果/boot/grub2/grub.cfg件存在，则执行chmod 600 /boot/grub2/grub.cfg。,chmod
+    644 /etc/services,chmod 750 /etc/rc6.d,chmod 750 /etc/rc1.d,chmod 644 /etc/group,chmod
+    750 /etc/rc0.d/,chmod 750 /etc/rc2.d"
+  - uid: CHK0010
+    description: 检查用户umask设置
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '22'
+    harm: 检查点1:检查用户umask设置,该核查的判断值（是否通过）：22;
+    solution: "1.修改对应配置文件，按需修改对应配置或在文件的最后一行添加 umask 022\r\n若系统shell为bash，修改/etc/profile(对新建用户生效)，/etc/bashrc或/etc/bash.bashrc(对所有用户生效)\r
+    \n若系统shell为csh，修改/etc/csh.login(对新建用户生效)，/etc/csh.cshrc(对所有用户生效)\r\n2.执行 source
+    配置文件，重新加载配置文件；例如：source /etc/bashrc\r\n3.执行 umask 命令，查看配置结果"
+  - uid: CHK0011
+    description: 检查重要文件属性设置
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /-+i-+/,/-+i-+/,/-+i-+/,/-+i-+/
+    harm:
+      检查点1:检查/etc/gshadow文件属性,该核查的判断值（是否通过）：/-+i-+/;检查点1:检查/etc/shadow文件属性,该核查的判断值（是否通过）：/-+i-+/;检查点1:检查/etc/group文件属性,该核查的判断值（是否通过）：/-+i-+/;检查点1:检查/etc/passwd文件属性,该核查的判断值（是否通过）：/-+i-+/;
+    solution: "执行chattr +i /etc/gshadow\r\n如果不支持chattr,编辑/etc/fstab\r\n在相应的reiserfs系统的选项中添加\"\
+    user_xattr,attrs\"这两个选项，然后重启主机。,执行chattr +i /etc/shadow\r\n如果不支持chattr,编辑/etc/fstab\r\
+    \n在相应的reiserfs系统的选项中添加\"user_xattr,attrs\"这两个选项，然后重启主机。,执行chattr +i /etc/group\r\
+    \n如果不支持chattr,编辑/etc/fstab\r\n在相应的reiserfs系统的选项中添加\"user_xattr,attrs\"这两个选项，然后重启主机。,执行chattr
+    +i /etc/passwd\r\n如果不支持chattr,编辑/etc/fstab\r\n在相应的reiserfs系统的选项中添加\"user_xattr,attrs\"\
+    这两个选项，然后重启主机。"
+  - uid: CHK0012
+    description: 检查是否设置ssh登录前警告Banner
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 0,sshd,/Banner\s+.+/
+    harm:
+      检查点1:ssh服务未开启,该核查的判断值（是否通过）：0;检查点2:ssh服务开启,该核查的判断值（是否通过）：sshd;检查点2:是否设置ssh登录前警告Banner,该核查的判断值（是否通过）：/Banner\s+.+/;
+    solution: "nan,nan,1. 执行如下命令创建ssh banner信息文件：\r\n#touch /etc/ssh_banner\r\n#chown
+    bin:bin /etc/ssh_banner\r\n#chmod 644 /etc/ssh_banner\r\n#echo \" Authorized only.
+    All activity will be monitored and reported \" > /etc/ssh_banner\r\n可根据实际需要修改该文件的内容。\r
+    \n2. 修改/etc/ssh/sshd_config文件，添加如下行：\r\nBanner /etc/ssh_banner\r\n3.重启sshd服务：\r
+    \n#/etc/init.d/sshd restart 或者 service sshd restart"
+  - uid: CHK0013
+    description: 检查是否对登录进行日志记录
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/
+    harm: 检查点1:检查是否记录成功登陆日志,该核查的判断值（是否通过）：/.+/;
+    solution: "登录日志文件为/var/log/wtmp,/var/log/utmp.这2个文件中记录着所有登录过主机的用户，时间，来源等内容，这个文件不具可读性，可用last命令来看。\r\
+    \n如果命令无结果，请联系管理员。"
+  - uid: CHK0014
+    description: 检查是否启用cron行为日志功能
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: TRUE,cron.*,cron.*
+    harm:
+      检查点1:syslog-ng是否启用记录cron行为日志功能,该核查的判断值（是否通过）：TRUE;检查点2:rsyslog是否启用记录cron行为日志功能,该核查的判断值（是否通过）：cron.*;检查点3:syslog是否启用记录cron行为日志功能,该核查的判断值（是否通过）：cron.*;
+    solution: "在/etc/syslog-ng/syslog-ng.conf中添加\r\nfilter f_cron       { facility(cron);
+    };\r\ndestination cron { file(\"/var/log/cron\"); };\r\nlog { source(src); filter(f_cron);
+    destination(cron); };\r\n其中/var/log/cron为日志文件。\r\n如果该文件不存在，则创建该文件，命令为：\r\ntouch
+    /var/log/cron，并修改权限为775.命令为：chmod 775 /var/log/cron.      ,编辑/etc/rsyslog.conf文件，\r\
+    \n配置：\r\ncron.*       /var/log/cron ，\r\n其中/var/log/cron为日志文件。\r\n如果该文件不存在，则创建该文件，命令为：\r
+    \ntouch /var/log/cron，并修改权限为775.命令为：chmod 775 /var/log/cron.              ,编辑/etc/syslog.conf文件，\r\
+    \n配置：\r\ncron.*       /var/log/cron ，\r\n其中/var/log/cron为日志文件。\r\n如果该文件不存在，则创建该文件，命令为：\r
+    \ntouch /var/log/cron，并修改权限为775.命令为：chmod 775 /var/log/cron.                 \
+    \                          "
+  - uid: CHK0015
+    description: 检查是否配置远程日志功能
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: set,/\d+\.\d*\.\d*\.\d*|.+/,/\d+\.\d*\.\d*\.\d*|.+/
+    harm:
+      检查点1:syslog-ng是否配置远程日志功能,该核查的判断值（是否通过）：set;检查点2:rsyslog是否配置远程日志功能,该核查的判断值（是否通过）：/\d+\.\d*\.\d*\.\d*|.+/;检查点3:syslog是否配置远程日志功能,该核查的判断值（是否通过）：/\d+\.\d*\.\d*\.\d*|.+/;
+    solution: "在/etc/syslog-ng/syslog-ng.conf中配置destination logserver { udp(\"10.10.10.10\"\
+    \ port(514)); };\r\nlog { source(src); destination(logserver); };\r\n可以将此处10.10.10.10替换为实际的IP,修改配置文件vi
+    /etc/rsyslog.conf，\r\n加上这一行：\r\n*.*                    @192.168.0.1\r\n可以将\"*.*\"\
+    替换为你实际需要的日志信息。比如：kern.* ; mail.* 等等。\r\n可以将此处192.168.0.1替换为实际的IP或域名(域名格式形如：www.nsfocus.com,根据具体情况填写)。\r
+    \n,修改配置文件vi /etc/syslog.conf，\r\n加上这一行：\r\n*.*                    @192.168.0.1\r\
+    \n可以将\"*.*\"替换为你实际需要的日志信息。比如：kern.* ; mail.* 等等。\r\n可以将此处192.168.0.1替换为实际的IP或域名(域名格式形如：www.nsfocus.com,根据具体情况填写)。\r\
+    \n"
+  - uid: CHK0016
+    description: 检查日志文件是否非全局可写
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 775,775,775,775,755,775,775,775
+    harm:
+      检查点1:检查/var/log/mail文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/boot.log是否是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/localmessages文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/secure文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/messages文件是否不可被其他用户修改,该核查的判断值（是否通过）：755;检查点1:检查/var/log/cron日志文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/spooler文件是否other用户不可写,该核查的判断值（是否通过）：775;检查点1:检查/var/log/maillog文件是否other用户不可写,该核查的判断值（是否通过）：775;
+    solution: 执行命令：chmod 775 /var/log/mail,执行命令：chmod 775 /var/log/boot.log,执行命令：chmod
+      775 /var/log/localmessages,执行命令：chmod 775 /var/log/secure,执行命令：chmod 755 /var/log/messages,执行命令：chmod
+      775 /var/log/cron,执行命令：chmod 775 /var/log/spooler,执行命令：chmod 775 /var/log/maillog
+  - uid: CHK0017
+    description: 检查安全事件日志配置
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: valid,valid,valid
+    harm:
+      检查点1:检查syslog-ng是否配置安全事件日志,该核查的判断值（是否通过）：valid;检查点2:检查rsyslog是否配置安全事件日志,该核查的判断值（是否通过）：valid;检查点3:检查syslog是否配置安全事件日志,该核查的判断值（是否通过）：valid;
+    solution: "编辑/etc/syslog-ng/syslog-ng.conf\r\n配置：\r\nfilter f_msgs { level(err)
+    or facility(kern) and level(debug) or facility(daemon) and level(notice); };\r
+    \ndestination msgs { file(\"/var/adm/msgs\"); };\r\nlog { source(src); filter(f_msgs);
+    destination(msgs); };\r\n其中/var/adm/msgs为日志文件。\r\n如果该文件不存在，则创建该文件，命令为：\r\ntouch
+    /var/adm/msgs，并修改权限为666.命令为：chmod 666 /var/adm/msgs.   \r\n重启日志服务：\r\n#/etc/init.d/syslog
+    restart 或者 service syslog restart,编辑/etc/rsyslog.conf\r\n配置：\r\n*.err;kern.debug;daemon.notice\
+    \                          /var/adm/messages\r\n其中/var/adm/messages为日志文件。\r\n
+    如果该文件不存在，则创建该文件，命令为：\r\ntouch /var/adm/messages，并修改权限为666.命令为：chmod 666 /var/adm/messages.\
+    \   \r\n重启日志服务：\r\n#/etc/init.d/rsyslog restart 或者 service rsyslog restart\r\n
+    ,编辑/etc/syslog.conf\r\n配置：\r\n*.err;kern.debug;daemon.notice                 \
+    \         /var/adm/messages\r\n其中/var/adm/messages为日志文件。\r\n如果该文件不存在，则创建该文件，命令为：\r
+    \ntouch /var/adm/messages，并修改权限为666.命令为：chmod 666 /var/adm/messages.   \r\n重启日志服务：\r
+    \n#/etc/init.d/syslog restart 或者 service syslog restart\r\n"
+  - uid: CHK0018
+    description: 检查是否记录用户对设备的操作
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: not exist
+    harm: 检查点1:查看是否存在/var/log/pacct,该核查的判断值（是否通过）：not exist;
+    solution: "通过设置日志文件可以对每个用户的每一条命令进行记录，这一功能默认是不开放的，为了打开它，需要安装pacct工具，并执行以下命令：\r\n
+    #touch /var/log/pacct\r\n#accton /var/log/pacct\r\n执行读取命令lastcomm  [user name]
+    –f /var/log/pacct\r\n\r\n"
+  - uid: CHK0019
+    description: 检查是否配置su命令使用情况记录
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: valid
+    harm: 检查点1:检查是否配置su命令使用情况记录,该核查的判断值（是否通过）：valid;
+    solution: "1.\r\nRedhat5.x之前(包括5.x):编辑/etc/syslog.conf,\r\nRedhat6.x之后(包括6.x):编辑/etc/rsyslog.conf,\r
+    \nSuse 9:编辑/etc/syslog.conf,\r\n配置:\r\n    authpriv.*   /var/log/secure\r\n2.\r
+    \nSuse10, 11:\r\n编辑:/etc/syslog-ng/syslog-ng.conf。\r\n配置:\r\n    filter f_secure\
+    \     { facility(authpriv); };\r\n    destination priverr { file(\"/var/log/secure\"\
+    ); };\r\n    log { source(src); filter(f_secure); destination(priverr); };\r\n\
+    3.\r\n创建/var/log/secure文件\r\n    touch /var/log/secure\r\n4.\r\n重启syslog服务\r\n\
+    \    #/etc/init.d/syslog restart 或者 service syslog restart"
+  - uid: CHK0020
+    description: 检查是否禁止匿名用户登录FTP
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: TRUE,valid
+    harm: 检查点1:禁止匿名VSFTP用户登录,该核查的判断值（是否通过）：TRUE;检查点1:禁止匿名WU-FTP用户登录,该核查的判断值（是否通过）：valid;
+    solution:
+      编辑/etc/vsftpd.conf(或/etc/vsftpd/vsftpd.conf)文件，设置：anonymous_enable=NO,在/etc/passwd文件中，删除ftp用户
+  - uid: CHK0021
+    description: 检查使用IP协议远程维护的设备是否配置SSH协议，禁用telnet协议
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/,sshd,sshd,/telnet\s*disable|disable\s*=\s*yes/i
+    harm:
+      检查点1:是否存在telnet进程,该核查的判断值（是否通过）：/.+/;检查点1:对于使用IP协议进行远程维护的设备,应配置使用SSH协议,该核查的判断值（是否通过）：sshd;检查点2:对于使用IP协议进行远程维护的设备,应配置使用SSH协议,该核查的判断值（是否通过）：sshd;检查点2:对于使用IP协议进行远程维护的设备,应禁止使用telnet协议,该核查的判断值（是否通过）：/telnet\s*disable|disable\s*=\s*yes/i;
+    solution: "nan,在网站上免费获取OpenSSH http://www.openssh.com/,并根据安装文件说明执行安装步骤,在网站上免费获取OpenSSH
+    http://www.openssh.com/,并根据安装文件说明执行安装步骤,利用命令rpm -qa |grep telnet查看是否安装telnet 和telnet
+    server  如果安装的话\r\n1、编辑/etc/xinetd.d/telnet, 修改 disable =  yes。\r\n2.激活xinetd服务。命令如下：\r
+    \n# service xinetd restart\r\n如果没安装则说明禁用telnet服务"
+  - uid: CHK0022
+    description: 检查是否禁止root用户远程登录
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: TRUE,no
+    harm:
+      检查点1:检查是否禁止root用户远程telnet登录,该核查的判断值（是否通过）：TRUE;检查点1:检查是否禁止root用户远程ssh登录,该核查的判断值（是否通过）：no;
+    solution: "编辑 /etc/pam.d/login文件，配置auth required pam_securetty.so\r\n或：\r\nauth
+    [user_unknown=ignore success=ok ignore=ignore default=bad]\r\npam_securetty.so\r
+    \n,修改/etc/ssh/sshd_config文件,配置PermitRootLogin no。重启服务，/etc/init.d/sshd restart
+    或者 service sshd restart。"
+  - uid: CHK0023
+    description: 检查是否禁止root用户登录FTP
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: valid,valid
+    harm: 检查点1:禁止root登录VSFTP,该核查的判断值（是否通过）：valid;检查点1:禁止root登录WU-FTP,该核查的判断值（是否通过）：valid;
+    solution: "1.编辑/etc/ftpusers(或/etc/vsftpd/ftpusers)文件\r\n2.添加root,在/etc/ftpusers文件中加入下列行\r\
+    \nroot"
+  - uid: CHK0024
+    description: 检查是否修改snmp默认团体字
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: no,0,yes,0
+    harm:
+      检查点1:检查是否安装snmp服务,该核查的判断值（是否通过）：no;检查点2:检查snmp团体字是否未使用private,该核查的判断值（是否通过）：0;检查点2:检查配置文件/etc/snmp/snmpd.conf是否存在。,该核查的判断值（是否通过）：yes;检查点2:检查snmp团体字是否未使用public,该核查的判断值（是否通过）：0;
+    solution:
+      如果系统未安装snmp服务，则认为合规。,编辑/etc/snmp/snmpd.conf，修改private默认团体字为用户自定义团体字。,如果系统安装了snmp服务，请确保该文件存在。如果不存在，则在/etc/snmp/目录下创建该文件。,编辑/etc/snmp/snmpd.conf，修改public默认团体字为用户自定义团体字。
+  - uid: CHK0025
+    description: 检查系统openssh安全配置
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: valid
+    harm: 检查点1:检查系统openssh安全配置,该核查的判断值（是否通过）：valid;
+    solution: "1.确保/etc/ssh/sshd_config或/etc/ssh2/sshd2_config文件存在。如果不存在，则忽略下面配置步骤。\r
+    \n2.在sshd_config或sshd2_config中配置：Protocol 2\r\n3.在sshd_config或sshd2_config中配置：PermitRootLogin
+    no或PermitRootLogin NO"
+  - uid: CHK001
+    description: 检查是否设置命令行界面超时退出
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '600'
+    harm: 检查点1:检查命令行界面超时时间,该核查的判断值（是否通过）：600;
+    solution: 以root账户执行，vi /etc/profile,增加 export TMOUT=600(单位：秒，可根据具体情况设定超时退出时间，要求不大于600秒),注销用户，再用该用户登录激活该功能
+  - uid: CHK002
+    description: 检查是否使用PAM认证模块禁止wheel组之外的用户su为root
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/
+    harm: 检查点1:检查是否使用PAM认证模块禁止wheel组之外的用户su为root,该核查的判断值（是否通过）：/.+/;
+    solution: "方法一：\r\n编辑su文件(vi /etc/pam.d/su)，在开头添加下面两行： \r\nauth sufficient pam_rootok.so
+    和\r\nauth required pam_wheel.so group=wheel 这表明只有wheel组的成员可以使用su命令成为root用户。\r\n
+    你可以把用户添加到wheel组，以使它可以使用su命令成为root用户。\r\n添加方法为：usermod –G wheel username\r\n\r\n
+    方法二(适用于Centos7.x版本)：\r\n编辑su文件(vi /etc/pam.d/su)， \r\n去掉 auth sufficient pam_rootok.so
+    和 auth  required  pam_wheel.so use_uid 行的注释，这表明只有wheel组的成员可以使用su命令成为root用户。\r\n
+    你可以把用户添加到wheel组，以使它可以使用su命令成为root用户。\r\n添加方法为：usermod –G wheel username"
+  - uid: CHK003
+    description: 检查是否删除了潜在危险文件
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: hosts.equiv,.netrc,.rhosts
+    harm: 检查点1:是否删除hosts.equiv文件,该核查的判断值（是否通过）：hosts.equiv;检查点1:是否删除.netrc 文件,该核查的判断值（是否通过）：.netrc;检查点1:是否删除.rhosts
+      文件,该核查的判断值（是否通过）：.rhosts;
+    solution: "1.执行命令find / -maxdepth 3 -name hosts.equiv 2>/dev/null\r\n2.进入到hosts.equiv文件存在的目录\r
+    \n3.执行命令：mv hosts.equiv hosts.equiv.bak,1.执行命令find / -maxdepth 3 -name .netrc
+    2>/dev/null\r\n2.进入到.netrc文件存在的目录\r\n3.执行命令：mv .netrc .netrc.bak ,1.执行命令find /
+    -maxdepth 3 -name .rhosts 2>/dev/null\r\n2.进入到.rhosts文件存在的目录\r\n3.执行命令：mv .rhosts
+    .rhosts.bak "
+  - uid: CHK004
+    description: 检查是否关闭系统信任机制
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 0,0
+    harm: 检查点1:检查是否存在equiv文件,该核查的判断值（是否通过）：0;检查点1:检查是否存在rhosts文件,该核查的判断值（是否通过）：0;
+    solution: "1.执行命令find / -maxdepth 2 -name hosts.equiv\r\n2.进入到. hosts.equiv文件存在的目录\r
+    \n3.执行命令：mv hosts.equiv   hosts.equiv.bak ,1.执行命令find / -maxdepth 3 -type f -name
+    .rhosts 2>/dev/null\r\n2.进入到.rhosts文件存在的目录\r\n3.执行命令：mv .rhosts .rhosts.bak "
+  - uid: CHK005
+    description: 检查是否关闭不必要的服务和端口
+    riskLevel: 7
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput:
+      /开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i,/开启|启用|on/i
+    harm:
+      检查点1:检查是否关闭daytime服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭printer服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭sendmail服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭nfs服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭kshell服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭lpd服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭tftp服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭discard服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭ntalk服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭bootps服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭chargen服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭ypbind服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭ident服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭nfslock服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭echo服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭time服务,该核查的判断值（是否通过）：/开启|启用|on/i;检查点1:检查是否关闭klogin服务,该核查的判断值（是否通过）：/开启|启用|on/i;
+    solution: "chkconfig [--level levels] daytime off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] printer off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels]
+    sendmail off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels] nfs off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] kshell off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels]
+    lpd off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels] tftp off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] discard off\r\nchkconfig [--level levels] discard-udp off\r\n
+    注:levels为运行级别,需要重启机器,chkconfig [--level levels] ntalk off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] bootps off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels]
+    chargen off\r\nchkconfig [--level levels] chargen-udp off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] ypbind off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels]
+    ident off\r\n注:levels为运行级别,需要重启机器,chkconfig [--level levels] nfslock off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] echo off\r\nchkconfig [--level levels] echo-udp off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] time off\r\nchkconfig [--level levels] time-udp off\r\n注:levels为运行级别,需要重启机器,chkconfig
+    [--level levels] klogin off\r\n注:levels为运行级别,需要重启机器"
+  - uid: CHK006
+    description: '检查系统core dump设置 '
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 0,0
+    harm: 检查点1:检查/etc/security/limits.conf是否设置* soft core 0,该核查的判断值（是否通过）：0;检查点1:检查/etc/security/limits.conf是否设置*
+      hard core 0,该核查的判断值（是否通过）：0;
+    solution: 在文件/etc/security/limits.conf中配置* soft core 0,在文件/etc/security/limits.conf中配置*
+      hard core 0
+  - uid: CHK007
+    description: 检查root用户的path环境变量
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/
+    harm: 检查点1:检查root用户的path环境变量内容,该核查的判断值（是否通过）：/.+/;
+    solution: 修改文件/etc/profile或/root/.bash_profile 在环境变量$PATH中删除包含（.和..）的路径
+  - uid: CHK008
+    description: 检查系统是否禁用ctrl+alt+del组合键
+    riskLevel: 5
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 'TRUE'
+    harm: 检查点1:检查系统是否禁用ctrl+alt+del组合键,该核查的判断值（是否通过）：TRUE;
+    solution: "centos7/rhel7:\r\n删除/usr/lib/systemd/system/ctrl-alt-del.target\r\n再次执行init
+    q重新reload配置文件\r\n其他版本：\r\n编辑/etc/inittab，注释如下行ca::ctrlaltdel:/sbin/shutdown***，之后重启系统。"
+  - uid: CHK009
+    description: 检查是否配置用户所需最小权限
+    riskLevel: 4
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 644,644,600
+    harm:
+      检查点1:检查/etc/group文件权限,该核查的判断值（是否通过）：644;检查点1:检查/etc/passwd文件权限,该核查的判断值（是否通过）：644;检查点1:检查/etc/shadow文件权限,该核查的判断值（是否通过）：600;
+    solution: chmod 644 /etc/group,chmod 644 /etc/passwd,chmod 600 /etc/shadow
+  - uid: CHK0010
+    description: 检查密码重复使用次数限制
+    riskLevel: 4
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: valid
+    harm: 检查点1:检查密码重复使用次数限制,该核查的判断值（是否通过）：valid;
+    solution: "Redhat:编辑/etc/pam.d/system-auth文件，\r\nSuse9:编辑/etc/pam.d/passwd文件，\r\n
+    Suse10,Suse11:编辑/etc/pam.d/common-password文件，\r\n修改设置如下\r\npassword sufficient
+    pam_unix.so md5 shadow nullok try_first_pass use_authtok remember=5 \r\n补充操作说明\r
+    \n只需在password sufficient这一行加上remember=5即可\r\nNIS系统无法生效，非NIS系统或NIS+系统能够生效。\r\n"
+  - uid: CHK0011
+    description: 检查系统内核参数配置
+    riskLevel: 4
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 1,0,0,0,0
+    harm:
+      检查点1:检查icmp_echo_ignore_broadcasts配置,该核查的判断值（是否通过）：1;检查点1:检查send_redirects配置,该核查的判断值（是否通过）：0;检查点1:是否禁止icmp重定向报文,该核查的判断值（是否通过）：0;检查点1:是否禁止icmp源路由,该核查的判断值（是否通过）：0;检查点1:检查ip_forward配置,该核查的判断值（是否通过）：0;
+    solution: "执行命令\r\n#sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=\"1\"\r\n修改后可查看文件\r
+    \ncat /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 的值为1\r\n注：修改只能当次生效，重启系统需重新修改,执行命令\r
+    \n#sysctl -w net.ipv4.conf.all.send_redirects=\"0\"\r\n修改后可查看文件\r\ncat /proc/sys/net/ipv4/conf/all/send_redirects
+    的值为0\r\n注：修改只能当次生效，重启系统需重新修改,执行命令\r\n#sysctl -w net.ipv4.conf.all.accept_redirects=\"\
+    0\"\r\n修改后可查看文件\r\ncat /proc/sys/net/ipv4/conf/all/accept_redirects 的值为0\r\n注：修改只能当次生效，重启系统需重新修改,执行命令\r
+    \n#sysctl -w net.ipv4.conf.all.accept_source_route=\"0\"\r\n修改后可查看文件 \r\ncat /proc/sys/net/ipv4/conf/all/accept_source_route
+    的值为0\r\n注：修改只能当次生效，重启系统需重新修改,执行命令\r\n#sysctl -w net.ipv4.ip_forward=\"0\"\r\n
+    修改后可查看文件\r\ncat /proc/sys/net/ipv4/ip_forward 的值为0\r\n注：修改只能当次生效，重启系统需重新修改"
+  - uid: CHK0012
+    description: 检查是否设置系统引导管理器密码
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /[^\s]+/,/[^\s]+/,0,0
+    harm:
+      检查点1:检查是否设置grub密码,该核查的判断值（是否通过）：/[^\s]+/;检查点2:检查是否设置lilo密码,该核查的判断值（是否通过）：/[^\s]+/;检查点3:/boot/grub/menu.lst文件不存在,该核查的判断值（是否通过）：0;检查点3:/etc/lilo.conf文件不存在,该核查的判断值（是否通过）：0;
+    solution: "1.请确认系统引导器的类型为grub,如果不为grub,则忽略此检查点。\r\n2.如果/boot/grub/menu.lst文件存在，编辑/boot/grub/menu.lst文件,设置password=*（*为需要设置的密码。\r\
+    \n3.如果不存在，请检查grub是否正确安装，或/boot/grub/menu.lst文件是否被更名。,1.请确认系统引导器的类型为lilo,如果不为lilo,则忽略此检查点。\r\
+    \n2.如果/etc/lilo.conf文件存在，编辑/etc/lilo.conf文件,设置password=*（*为需要设置的密码。\r\n3.如果不存在，请检查lilo是否正确安装，或/etc/lilo.conf文件是否被更名。,nan,nan"
+  - uid: CHK0013
+    description: 检查系统磁盘分区使用率
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '80'
+    harm: 检查点1:检测系统磁盘根分区已使用空间是否维持在80%以下,该核查的判断值（是否通过）：80;
+    solution: 如果磁盘动态分区空间不足，建议管理员扩充磁盘容量
+  - uid: CHK0014
+    description: 检查/usr/bin/目录下可执行文件的拥有者属性
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '500'
+    harm: 检查点1:检查/usr/bin/目录下的可执行文件的拥有者属性，当可执行文件设置s属性时，执行时可以获取其拥有者的权限。,该核查的判断值（是否通过）：500;
+    solution: "找出系统中所有含有“s”属性的文件，把不必要的“s”属性去掉，或者把不用的直接删除。\r\n# find /usr/bin -type f\
+    \   \\( -perm -04000 -o -perm -02000 \\) -exec ls -lg {} \\;\r\n# chmod a-s filename"
+  - uid: CHK0015
+    description: 检查历史命令设置
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /\d+/,/\d+/
+    harm: 检查点1:检查保留历史命令的条数,该核查的判断值（是否通过）：/\d+/;检查点1:检查保留历史命令的记录文件大小,该核查的判断值（是否通过）：/\d+/;
+    solution:
+      编辑文件/etc/profile，根据实际需求，配置HISTSIZE=实际需求数值，系统默认值为1000,编辑文件/etc/profile，根据实际需求，配置HISTFILESIZE=实际需求数值，系统默认值为1000
+  - uid: CHK0016
+    description: 检查是否按用户分配账号
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '1'
+    harm: 检查点1:检查是否按用户分配账号,该核查的判断值（是否通过）：1;
+    solution: "为用户创建账号：\r\n#useradd username  #创建账号\r\n#passwd username   #设置密码\r\n
+    修改权限：\r\n#chmod 750 directory  #其中755为设置的权限，可根据实际情况设置相应的权限，directory是要更改权限的目录)\r\
+    \n使用该命令为不同的用户分配不同的账号，设置不同的口令及权限信息等。"
+  - uid: CHK0017
+    description: 检查FTP用户上传的文件所具有的权限
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 'TRUE'
+    harm: 检查点1:限制FTP用户登录后上传文件的属性,该核查的判断值（是否通过）：TRUE;
+    solution: "如果系统使用vsftp：\r\n修改/etc/vsftpd.conf（或者为/etc/vsftpd/vsftpd.conf）\r\n# vi
+    /etc/vsftpd.conf\r\n确保以下行未被注释掉，如果没有该行，请添加：\r\nwrite_enable=YES //允许上传。如果不需要上传权限，此项可不进行更改。\r
+    \nls_recurse_enable=YES\r\nlocal_umask=022 //设置用户上传文件的属性为755\r\nanon_umask=022
+    //匿名用户上传文件(包括目录)的 umask\r\n重启网络服务\r\n# /etc/init.d/vsftpd restart\r\n如果系统使用pure-ftp\r
+    \n修改/etc/pure-ftpd/pure-ftpd.conf\r\n# vi /etc/pure-ftpd/pure-ftpd.conf\r\n确保以下行未被注释掉，如果没有该行，请添加：\r\
+    \nUmask                       177:077\r\n重启ftp服务\r\n#/etc/init.d/pure-ftpd restart\r\
+    \n"
+  - uid: CHK0018
+    description: 检查日志文件权限设置
+    riskLevel: 3
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /(r-x|rw-|rwx)/
+    harm: 检查点1:检查日志文件权限设置,该核查的判断值（是否通过）：/(r-x|rw-|rwx)/;
+    solution: "1.如果为redhat，suse9,则备份/etc/syslog.conf(或/etc/rsyslog.conf)文件中配置的日志文件，如果为suse10，suse11，则备份/etc/syslog-ng文件中配置的日志文件.\r\
+    \n2.如果日志服务为syslogd，则执行：\r\n    LOGDIR=`cat /etc/syslog.conf 2>/dev/null | grep
+    -v \"^[[:space:]]*#\"|sed '/^#/d' |sed '/^$/d' |awk '(($2!~/@/) && ($2!~/*/) &&
+    ($2!~/-/)) {print $2}';`;ls -l $LOGDIR 2>/etc/null | grep  \"^-\";跳转至步骤3.\r\n\
+    如果日志服务为syslog-ng，则执行：\r\n    LOGDIR=`cat /etc/syslog-ng/syslog-ng.conf 2>/dev/null
+    | grep -v \"^[[:space:]]*#\"|grep \"^destination\"|grep file|cut -d\\\" -f2`;ls
+    -l $LOGDIR 2>/dev/null | grep \"^-\";跳转至步骤3.\r\n如果日志服务为rsyslogd，则执行：\r\n    LOGDIR=`cat
+    /etc/rsyslog.conf | grep -v \"^[[:space:]]*#\" |sed '/^#/d' |sed '/^$/d' |awk
+    '(($2!~/@/) && ($2!~/*/) && ($2!~/-/)) {print $2}'`;ls -l $LOGDIR 2>/etc/null
+    | grep \"^-\";跳转至步骤3.\r\n3.步骤2列出的文件中，同组用户、其他用户权限中不能出现r-x,rw-,rwx。\r\n执行下列命令，修改步骤2中列出出来的不符合标准值的文件权限。\r
+    \n例如修改权限为640\r\n#chmod 640 <filename>\r\n或者修改权限为600\r\n#chmod 600 <filename>\r\
+    \n注：权限值没有限定，只要满足同组用户、其他用户不出现r-x,rw-,rwx即可。"
+  - uid: CHK0019
+    description: 检查是否设置ssh成功登录后Banner
+    riskLevel: 2
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 'TRUE'
+    harm: 检查点1:是否设置ssh成功登录后Banner信息,该核查的判断值（是否通过）：TRUE;
+    solution: "1.修改文件/etc/motd的内容，如没有该文件，则创建它。\r\n#echo \"Login success. All activity
+    will be monitored and reported \" > /etc/motd根据实际需要修改该文件的内容"
+  - uid: CHK0020
+    description: 检查是否限制FTP用户登录后能访问的目录
+    riskLevel: 2
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 'TRUE'
+    harm: 检查点1:检查是否限制FTP用户登录后能访问的目录,该核查的判断值（是否通过）：TRUE;
+    solution: "1.vsftp\r\n修改/etc/vsftpd.conf(或者/etc/vsfptd/vsftpd.conf)\r\n#vi /etc/vsftpd.conf\r
+    \n确保以下行未被注释掉，如果没有该行，请添加：\r\nchroot_local_user=YES\r\n重启网络服务\r\n#/etc/init.d/vsftpd
+    restart\r\n\r\n2.pure-ftp\r\n修改/etc/pure-ftpd/pure-ftpd.conf\r\n#vi /etc/pure-ftpd/pure-ftpd.conf\r\
+    \n确保以下行未被注释掉（并且值为以下值），如果没有该行，请添加：\r\nChrootEveryone              yes\r\nAllowUserFXP\
+    \                no\r\nAllowAnonymousFXP           no\r\n重启ftp服务\r\n#/etc/init.d/pure-ftpd
+    restart"
+  - uid: CHK0021
+    description: 检查拥有suid和sgid权限的文件
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: all files valid
+    harm: 检查点1:检查重要文件是否存在suid和sgid权限,该核查的判断值（是否通过）：all files valid;
+    solution: "执行命令:\r\nfind /usr/bin/chage /usr/bin/gpasswd /usr/bin/wall /usr/bin/chfn
+    /usr/bin/chsh /usr/bin/newgrp /usr/bin/write /usr/sbin/usernetctl /usr/sbin/traceroute
+    /bin/mount /bin/umount /bin/ping /sbin/netreport -type f -perm +6000 2>/dev/null\r
+    \n如果存在输出结果，则使用chmod 755 文件名 命令修改文件的权限。\r\n例如：chmod a-s /usr/bin/chage"
+  - uid: CHK0022
+    description: 检查telnet Banner 设置
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: 'TRUE'
+    harm: 检查点1:检查是否更改默认的telnet登录警告Banner,该核查的判断值（是否通过）：TRUE;
+    solution: "1.修改telnet回显信息\r\n修改文件/etc/issue 和/etc/issue.net中的内容：\r\n#echo \" Authorized
+    users only. All activity may be monitored and reported \" > /etc/issue\r\n#echo
+    \" Authorized users only. All activity may be monitored and reported \" > /etc/issue.net\r
+    \n可根据实际需要修改该文件的内容,但是不要出现系统敏感信息,如redhat,suse等。\r\n2.重启服务：\r\n# /etc/init.d/xinetd
+    restart 或者 或者 service xinetd restart"
+  - uid: CHK0023
+    description: 检查是否配置定时自动屏幕锁定（适用于具备图形界面的设备）
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /\d+/,TRUE,blank-only,TRUE,TRUE,/\d+/,TRUE,/\d+/
+    harm:
+      检查点1:启用空闲激活时间,该核查的判断值（是否通过）：/\d+/;检查点1:启用空闲激活,该核查的判断值（是否通过）：TRUE;检查点1:启用屏保,该核查的判断值（是否通过）：blank-only;检查点1:启用屏幕锁定,该核查的判断值（是否通过）：TRUE;检查点2:启用激活空闲激活centos
+      7 ,该核查的判断值（是否通过）：TRUE;检查点2:黑屏至锁屏延迟时间（centos 7）,该核查的判断值（是否通过）：/\d+/;检查点2:启用屏幕锁定centos
+      7,该核查的判断值（是否通过）：TRUE;检查点2:启用空闲激活时间 （centos 7）,该核查的判断值（是否通过）：/\d+/;
+    solution: "在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；\r\n或使用命令：\r\ngconftool-2 --direct
+    \\  此处为回车换行\r\n--config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \\\
+    \  此处为回车换行\r\n--type int \\  此处为回车换行\r\n--set /apps/gnome-screensaver/idle_delay
+    15  根据具体情况设置时间,在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；\r\n或用命令方式：\r\ngconftool-2
+    --direct \\  此处为回车换行\r\n--config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory
+    \\  此处为回车换行\r\n--type bool \\  此处为回车换行\r\n--set /apps/gnome-screensaver/idle_activation_enabled
+    true,在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；\r\n或使用命令：\r\ngconftool-2 --direct \\\
+    \  此处为回车换行\r\n--config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \\\
+    \  此处为回车换行\r\n--type string \\  此处为回车换行\r\n--set /apps/gnome-screensaver/mode
+    blank-only,在屏幕上面的面板中，打开“系统”-->“首选项”-->“屏幕保护程序”；\r\n或使用命令：\r\ngconftool-2 --direct
+    \\  此处为回车换行\r\n--config-source xml:readwrite:/etc/gconf/gconf.xml.mandatory \\\
+    \  此处为回车换行  \r\n--type bool \\  此处为回车换行\r\n--set /apps/gnome-screensaver/lock_enabled
+    true,命令行方式：\r\ngsettings set org.gnome.desktop.screensaver idle-activation-enabled
+    true,界面修改：\r\n应用程序——系统工具 ——设置——隐私——锁屏——黑屏至锁屏的等待时间\r\n命令行修改：\r\ngsettings set org.gnome.desktop.screensaver
+    lock-delay 300 300为5分钟，可自行调整,界面配置：\r\n应用程序——系统工具 ——设置——隐私——锁屏——自动锁屏 打开\r\n命令行配置：\r
+    \ngsettings set org.gnome.desktop.screensaver lock-enabled true,界面配置：\r\n应用程序——系统工具
+    ——设置——电源——节电——空白屏幕\r\n命令行配置：\r\ngsettings set org.gnome.desktop.session idle-delay
+    300 300为5分钟，可根据需要自行调整"
+  - uid: CHK0024
+    description: 检查NFS（网络文件系统）服务配置
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: (portmap|nfs),notrun
+    harm:
+      检查点1:如果需要NFS服务，需要限制能够访问NFS服务的IP范围,该核查的判断值（是否通过）：(portmap|nfs);检查点2:如果没有必要，需要停止NFS服务,该核查的判断值（是否通过）：notrun;
+    solution: "限制能够访问NFS服务的IP范围：\r\n编辑文件：vi /etc/hosts.allow\r\n增加一行:portmap: 允许访问的IP,停止nfs服务：\r
+    \nSuse系统：/etc/init.d/nfsserver stop\r\nRedhat系统：/etc/init.d/nfs stop\r\n"
+  - uid: CHK0025
+    description: 检查是否安装chkrootkit进行系统监测
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: installed,infected|installed
+    harm:
+      检查点1:检查是否安装chkrootkit,该核查的判断值（是否通过）：installed;检查点1:检查系统是否安装rootkit,该核查的判断值（是否通过）：infected|installed;
+    solution: "软件可到chkrootkit的官方网下载:\r\nwww.chkrootkit.org\r\n安装后，把chkrootkit加入到PATH环境变量中。例如:cp
+    <chkrootkit路径> /sbin/,执行\r\n#chkrootkit -q 2>/dev/null\r\n如果条目中含有infected 或者 installed，需要判断是否为rootkit程序。"
+  - uid: CHK0026
+    description: 检查是否删除与设备运行、维护等工作无关的账号
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: ok
+    harm: 检查点1:是否删除与设备运行、维护等工作无关的账号,该核查的判断值（是否通过）：ok;
+    solution: "删除用户:#userdel username; \r\n锁定用户：\r\n#usermod -L username\r\n只有具备超级用户权限的使用者方可使用.\r
+    \n#usermod –U username可以解锁。\r\n补充操作说明\r\n需要锁定的用户：adm,lp,mail,uucp,operator,games,gopher,ftp,nobody,nobody4,noaccess,listen,webservd,rpm,dbus,avahi,mailnull,smmsp,nscd,vcsa,rpc,rpcuser,nfs,sshd,pcap,ntp,haldaemon,distcache,apache,webalizer,squid,xfs,gdm,sabayon,named。"
+  - uid: CHK0027
+    description: 检查是否对系统账号进行登录限制
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: ok
+    harm: 检查点1:禁止系统账号进行交互式登录,该核查的判断值（是否通过）：ok;
+    solution: "执行命令passwd -l adm，锁定adm账户。\r\n若adm账户不存在，检查项也合规。\r\n补充说明：需要锁定账户有adm、daemon,bin,sys、lp、uucp、nuucp、smmsp。"
+  - uid: CHK0028
+    description: 检查是否按组进行账号管理
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '1'
+    harm: 检查点1:检查是否按组进行账号管理,该核查的判断值（是否通过）：1;
+    solution: "1.执行备份：\r\n#cp -p /etc/group /etc/group.bak\r\n2.创建新的用户组\r\n#groupadd
+    组名\r\n#usermod -g 组名 -d 用户目录 -m 用户名\r\n把用户添加进入某个组(s)或参考usermod --help说明进行设置"
+  - uid: CHK0029
+    description: 检查账户认证失败次数限制
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: valid,valid
+    harm:
+      检查点1:检查是否配置账户认证失败次数限制,该核查的判断值（是否通过）：valid;检查点1:检查是否配置SSH方式账户认证失败次数限制,该核查的判断值（是否通过）：valid;
+    solution: "Redhat:\r\n编辑/etc/pam.d/system-auth文件\r\n配置:\r\nauth  required  pam_tally.so
+    deny=5 unlock_time=600 \r\naccount  required   pam_tally.so\r\n\r\nSuse9:\r\n\
+    编辑/etc/pam.d/passwd文件\r\n配置:\r\nauth  required  pam_tally.so deny=5 unlock_time=600
+    \r\naccount  required   pam_tally.so\r\n\r\nSuse10，Suse11:\r\n编辑/etc/pam.d/common-auth文件\r\
+    \n配置:auth  required  pam_tally.so deny=5 unlock_time=600 no_lock_time\r\n编辑/etc/pam.d/common-account文件\r\
+    \n配置:account  required   pam_tally.so\r\n\r\n参数说明：\r\ndeny        #连续认证失败次数超过的次数\r\
+    \nunlock_time  #锁定的时间，单位为秒,编辑/etc/pam.d/sshd文件\r\n在auth行下方添加：\r\nauth  required\
+    \  pam_tally.so deny=5 unlock_time=600 no_lock_time\r\n在account行下方添加：\r\naccount\
+    \  required   pam_tally.so\r\n参数说明：\r\ndeny        #连续认证失败次数超过的次数\r\nunlock_time\
+    \  #锁定的时间，单位为秒\r\n\r\n如果系统版大于等于centos 6\r\n在auth行下方添加：\r\nauth  required  pam_tally2.so
+    deny=5 unlock_time=600 \r\n在account行下方添加：\r\naccount  required   pam_tally2.so"
+  - uid: CHK0030
+    description: 检查是否限制远程登录IP范围
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: all:all,allow
+    harm:
+      检查点1:检查/etc/hosts.deny配置,该核查的判断值（是否通过）：all:all;检查点1:检查/etc/hosts.allow配置,该核查的判断值（是否通过）：allow;
+    solution: "编辑/etc/hosts.deny\r\n增加一行 all:all\r\n重启进程：\r\n#/etc/init.d/xinetd restart
+    或者 service xinetd restart\r\n,编辑/etc/hosts.allow\r\n增加一行 <service>: 允许访问的IP；举例如下：\r
+    \nall:192.168.4.44:allow #允许单个IP；\r\nsshd:192.168.1.:allow #允许192.168.1的整个网段的PC通过SSH来访问本机\r
+    \n重启进程：\r\n#/etc/init.d/xinetd restart 或者 service xinetd restart"
+  - uid: CHK0031
+    description: 检查别名文件/etc/aliase（或/etc/mail/aliases）配置
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: ok,ok
+    harm:
+      检查点1:检查/etc/aliases是否禁用不必要的别名,该核查的判断值（是否通过）：ok;检查点2:检查/etc/mail/aliases是否禁用不必要的别名,该核查的判断值（是否通过）：ok;
+    solution: "参考配置操作\r\n编辑别名文件vi /etc/aliases，删除或注释掉下面的行\r\n#games: root  \r\n#ingres:
+    root   \r\n#system: root  \r\n#toor: root    \r\n#uucp: root    \r\n#manager:
+    root \r\n#dumper: root    \r\n#operator: root   \r\n#decode: root    \r\n#root:
+    marc\r\n补充操作说明\r\n更新后运行/usr/bin/newaliases，使改变生效\r\n,1.编辑别名文件vi /etc/mail/aliases，删除或注释掉下面的行\r
+    \n#games: root  \r\n#ingres: root   \r\n#system: root  \r\n#toor: root    \r\n
+    #uucp: root    \r\n#manager: root \r\n#dumper: root    \r\n#operator: root   \r
+    \n#decode: root    \r\n#root: marc\r\n2.修改后运行命令：/usr/bin/newaliases，使改变生效\r\n"
+  - uid: CHK0032
+    description: 检查是否关闭数据包转发功能（适用于不做路由功能的系统）
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: '0'
+    harm: 检查点1:对于不做路由功能的系统，检查是否关闭数据包转发功能,该核查的判断值（是否通过）：0;
+    solution: "Redhat 默认已经关闭了数据包转发功能。\r\n可通过以下命令来查看数据包转发功能是否关闭：\r\n# cat /proc/sys/net/ipv4/ip_forward\r
+    \n如果返回值为0，说明数据包转发功能已经关闭，为1则开启。\r\n关闭数据包转发功能：\r\n命令： #sysctl -w net.ipv4.ip_forward=0\r\
+    \n"
+  - uid: CHK0033
+    description: 检查是否关闭IP伪装和绑定多IP功能
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: off,on
+    harm: 检查点1:检查是否配置关闭多IP绑定,该核查的判断值（是否通过）：off;检查点1:检查是否配置关闭IP伪装,该核查的判断值（是否通过）：on;
+    solution: "编辑/etc/host.conf文件：\r\nmulti off    #关闭多IP绑定\r\n补充操作说明\r\nRedhat 默认没有/etc/host.conf文件，要先新建一个host.conf文件\r
+    \n,编辑/etc/host.conf文件：\r\nnospoof on  #关闭IP伪装\r\n补充操作说明\r\nRedhat 默认没有/etc/host.conf文件，要先新建一个host.conf文件\r\
+    \n"
+  - uid: CHK0034
+    description: 检查是否安装OS补丁
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: yes
+    harm: 检查点1:检查是否安装OS补丁,该核查的判断值（是否通过）：yes;
+    solution: 可以使用OnlineUpdate或Patch CD Update等方式升级系统补丁
+  - uid: CHK0035
+    description: 检查是否使用NTP（网络时间协议）保持时间同步
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/,start
+    harm: 检查点1:检查是否配置NTP服务器地址,该核查的判断值（是否通过）：/.+/;检查点1:检查ntp服务是否开启,该核查的判断值（是否通过）：start;
+    solution: "编辑ntp 的配置文件：\r\n#vi /etc/ntp.conf,\r\n配置：server IP地址（提供ntp服务的机器）\r\n
+    如：server 192.168.1.1\r\n开启ntp服务：\r\nredhat为：/etc/init.d/ntpd start 或者 service
+    ntpd start\r\nsuse9为：/etc/init.d/xntpd start\r\nsuse10,11为：/etc/init.d/ntp start,如果ntp服务未开启，开启ntp服务：\r
+    \nredhat为：/etc/init.d/ntpd start 或者 service ntpd start\r\nsuse9为：/etc/init.d/xntpd
+    start\r\nsuse10,11为：/etc/init.d/ntp start\r\ncentos 为：systemctl start ntpd"
+  - uid: CHK0036
+    description: 检查是否禁用不必要的系统服务
+    riskLevel: 1
+    query: |-
+      你要理解description的含义，并读取的harm的核查点，对query进行代码填充，这是要求：
+      1.query的的数据要输出json，按照{"output":"","status":0}的模式输出，其中0代表核查项目合格，1代表核查项目不合格，output必须输出核查项是否成功的原始输出;
+      2.其它description，expectedOutput，harm,solution必须存在;
+      3.生成的query只需要支持sh即可,核查对象为linux操作系统;
+      4.生成的query有很好的兼容新和错误处理，生成的代码可以参考solution字段对应的解决方案，反推查询方法;
+      5.$result["outputs"]的内容要包含用于核查判断的值并说明;
+      6.给出的代码具有兼容性和普适性;
+    expectedOutput: /.+/
+    harm: 检查点1:列出所需要服务的列表包括所需的系统服务，不在此列表的服务需关闭。,该核查的判断值（是否通过）：/.+/;
+    solution: "查看所有开启的服务：\r\n#ps aux \r\n禁用xinetd.d 目录中不用的服务：\r\n#vi /etc/xinetd.d/servicename
+    \r\n将服务文件里面的disable设置为disable=yes重启xinetd服务,即可。\r\n要直接关闭某个服务，如sshd可用如下命令:\r\n
+    # /etc/init.d/sshd stop #关闭正在运行的sshd服务\r\n补充操作说明\r\n关闭下列不必要的基本网络服务。\r\nchargen-dgram
+    daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram\
+    \   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram
+    daytime-dgram   echo-dgram gssftp  rsync  time-stream"
