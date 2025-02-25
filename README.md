@@ -35,48 +35,42 @@ remote          远程核查标识。
 1. 本地核查：
 
 ```
-./EasyBaseLine
+./EasyBaseLine local
 ```
+![图片](https://github.com/user-attachments/assets/6047bbff-2fa9-4be2-a428-198f380bf8d4)
 
-![图片](https://github.com/user-attachments/assets/7fc6efe4-c272-4703-9c2d-03ee3f14202d)
-
-![图片](https://github.com/user-attachments/assets/5a4e9e4b-43c9-4f12-b997-354ef15a50fb)
-
+![图片](https://github.com/user-attachments/assets/9de43d91-e0ba-4d65-b807-4e205b824e15)
 
 2. 远程核查：
 
 ```
 ./EasyBaseLine -remote -host [远程主机地址] -username [用户名] -password [密码] -proto [协议类型] -port [端口]
 ```
-![图片](https://github.com/user-attachments/assets/a7eb89ad-6926-4d21-a1a0-7e4b3abb66c6)
+![图片](https://github.com/user-attachments/assets/e9b5b02d-2bde-43ef-a165-15d678830c34)
 
-
-![图片](https://github.com/user-attachments/assets/4718a455-0e99-495b-a1d7-3e4603f200db)
+![图片](https://github.com/user-attachments/assets/1b1002b7-d134-43f3-a0f7-51b0dfe25c21)
 
 3. 远程批量核查：
 
 ```
 ./EasyBaseLine -remote -file [资产文件路径]
 ```
-![图片](https://github.com/user-attachments/assets/b059025b-6605-4e60-805c-189bca5955f7)
+![图片](https://github.com/user-attachments/assets/ea6613da-04d2-4fd8-b4e5-28246408070b)
 
-![图片](https://github.com/user-attachments/assets/d9e4ae38-a4be-4c9d-8dbe-6c6462aef6c3)
-
-
+![图片](https://github.com/user-attachments/assets/c7172c64-fbab-4338-9101-b294233ecaf9)
 
 4. web模式：
 
 ```
 ./EasyBaseLine -server
 ```
+![图片](https://github.com/user-attachments/assets/d0b20524-a09f-4b5c-bdc5-f28a139be72a)
 
-![图片](https://github.com/user-attachments/assets/54384fbf-4534-4653-bec2-009baf60fd17)
+![图片](https://github.com/user-attachments/assets/0bc4cdb7-c08a-4920-8629-c6e51524a7ce)
 
-![图片](https://github.com/user-attachments/assets/d30a54cc-655c-454d-a4ce-40870c653728)
+![图片](https://github.com/user-attachments/assets/4a0c6471-d870-455b-bf3c-5d0d6644f014)
 
-![图片](https://github.com/user-attachments/assets/7a62a90b-f893-4811-a3dc-b8f256c6593f)
-
-![图片](https://github.com/user-attachments/assets/fe2d4877-93a4-4b59-a9ab-78fbec4cad60)
+![图片](https://github.com/user-attachments/assets/ef4c5c20-d2f5-4435-94b4-3066c4e69414)
 
 
 ### 资产文件格式
@@ -86,8 +80,8 @@ remote          远程核查标识。
 ```
 Proto(协议类型) Host(主机地址) Username(用户名) Password(密码) Port(端口)
 Example:
-172.17.15.204 administrator test123 winrm 5985
-101.34.19.21 ubuntu test123 ssh 22
+12.17.15.24 administrator test123 winrm 5985
+11.34.19.21 ubuntu test123 ssh 22
 ```
 
 
